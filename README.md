@@ -81,6 +81,14 @@ da planilha original. **Atenção:** `npm run banco` apaga o banco inteiro. No d
 | `npm test` | testes automáticos (regras de choque, gerador, realocação, leitura da planilha, datas) |
 | `npx prisma db push` | aplica mudanças feitas em `prisma/schema.prisma` |
 
+### Link público (acesso de qualquer lugar)
+
+Dois cliques em **`LINK-PUBLICO.cmd`**: ele prepara a versão de produção (se o código mudou), liga o site e cria um link
+`https://….trycloudflare.com` com o Cloudflare Tunnel (o link já fica copiado). Precisa do `cloudflared`
+(`winget install --id Cloudflare.cloudflared`). O link **muda a cada vez** e só funciona enquanto o computador e as janelas
+"SAGA - site" e "SAGA - link publico" estiverem abertos. Quem recebe o link cria a conta na tela de login e um administrador aprova.
+Antes, feche o `npm run dev` (os dois usam a porta 3000).
+
 ### Usar na rede da faculdade
 
 Num computador da coordenação:
