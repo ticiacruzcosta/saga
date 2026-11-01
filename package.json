@@ -1,0 +1,29 @@
+{
+  "name": "saga",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SAGA - Sistema de Avisos e Gestão Acadêmica (Faculdade Unisapiens)",
+  "scripts": {
+    "dev": "prisma generate && next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "banco": "python seed.py --recriar --relatorio conferencia.xlsx",
+    "banco:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "exceljs": "^4.4.0",
+    "next": "16.4.3",
+    "prisma": "^6.19.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

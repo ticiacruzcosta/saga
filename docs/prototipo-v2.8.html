@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAGA - Sistema de Avisos e Gestão Acadêmica | Faculdade Unisapiens</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        unisapiens: {
+                            orange: '#F39200',
+                            darkOrange: '#D98200',
+                            navy: '#1A2332',
+                            darkNavy: '#111722',
+                            grayBg: '#F4F6F9'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-unisapiens-grayBg font-sans text-gray-800 flex h-screen overflow-hidden">
+
+    <!-- BARRA LATERAL (SIDEBAR RETRÁTIL) -->
+    <aside id="sidebar" class="w-64 bg-unisapiens-navy text-white flex flex-col justify-between shrink-0 shadow-lg transition-all duration-300 relative z-20">
+        <div>
+            <!-- LOGO UNISAPIENS E BOTÃO DE FECHAR -->
+            <div class="p-4 border-b border-gray-700/50 flex items-center justify-between">
+                <div class="flex items-center gap-3 sidebar-text">
+                    <div class="bg-unisapiens-orange text-white p-2 rounded-xl font-bold text-lg shadow-md shrink-0">US</div>
+                    <div class="overflow-hidden">
+                        <h1 class="font-bold tracking-wide text-unisapiens-orange leading-tight text-xs">FACULDADE</h1>
+                        <h2 class="font-black text-sm text-white tracking-wider leading-none">UNISAPIENS</h2>
+                        <span class="text-[9px] text-gray-400 font-mono tracking-widest block mt-0.5">SAGA v2.8</span>
+                    </div>
+                </div>
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition" title="Alternar Menu">
+                    <i id="sidebar-icon" class="fa-solid fa-bars-staggered"></i>
+                </button>
+            </div>
+
+            <!-- NAVEGAÇÃO -->
+            <nav class="p-3 space-y-5 text-sm">
+                <div>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3 sidebar-text">Operacional</p>
+                    <ul class="space-y-1">
+                        <li>
+                            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors bg-unisapiens-orange text-white" title="Dashboard (Hoje)">
+                                <i class="fa-solid fa-gauge w-5 text-center shrink-0"></i>
+                                <span class="sidebar-text truncate">Dashboard (Hoje)</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('gerador')" id="btn-gerador" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Grade do Semestre">
+                                <i class="fa-solid fa-calendar-days w-5 text-center shrink-0 text-unisapiens-orange"></i>
+                                <span class="sidebar-text truncate font-bold text-white">Grade do Semestre</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('horario-semana')" id="btn-horario-semana" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Horário da Semana">
+                                <i class="fa-solid fa-calendar-week w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Horário da Semana</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('importar')" id="btn-importar" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Importar Planilha">
+                                <i class="fa-solid fa-file-import w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Importar Planilha</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('historico')" id="btn-historico" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Histórico de Avisos">
+                                <i class="fa-solid fa-clock-rotate-left w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Histórico de Avisos</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3 sidebar-text">Cadastros Base</p>
+                    <ul class="space-y-1">
+                        <li>
+                            <button onclick="switchTab('turmas')" id="btn-turmas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Cursos e Turmas">
+                                <i class="fa-solid fa-people-group w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Cursos & Turmas</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('professores')" id="btn-professores" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Professores">
+                                <i class="fa-solid fa-chalkboard-user w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Professores</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('salas')" id="btn-salas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Salas e Laboratórios">
+                                <i class="fa-solid fa-door-open w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Salas & Laboratórios</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button onclick="switchTab('disciplinas')" id="btn-disciplinas" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Ofertas e Disciplinas">
+                                <i class="fa-solid fa-book w-5 text-center shrink-0 text-gray-400"></i>
+                                <span class="sidebar-text truncate">Ofertas & Disciplinas</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3 sidebar-text">Sistema</p>
+                    <ul class="space-y-1">
+                        <li>
+                            <button onclick="switchTab('whatsapp')" id="btn-whatsapp" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-300 hover:bg-gray-800 hover:text-white transition-colors" title="Status do Bot">
+                                <i class="fa-brands fa-whatsapp w-5 text-center shrink-0 text-green-400"></i>
+                                <span class="sidebar-text truncate">Status do Bot</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+
+        <div class="p-3 border-t border-gray-700/50 flex items-center gap-3 overflow-hidden">
+            <div class="w-8 h-8 rounded-full bg-unisapiens-orange text-white flex items-center justify-center font-bold text-xs shrink-0">A</div>
+            <div class="sidebar-text overflow-hidden">
+                <p class="text-xs font-medium text-white truncate">Coordenação / Admin</p>
+                <p class="text-[10px] text-gray-400 truncate">admin@unisapiens.edu.br</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ÁREA CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <!-- HEADER SUPERIOR -->
+        <header class="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg border text-gray-600 hover:bg-gray-100 transition mr-1" title="Alternar Menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <h2 id="page-title" class="text-xl font-bold text-unisapiens-navy">HORÁRIO DO DIA: SEXTA-FEIRA</h2>
+                <span class="bg-green-100 text-green-700 text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Bot Conectado
+                </span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="openModalDisciplina()" class="bg-unisapiens-orange hover:bg-unisapiens-darkOrange text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Nova Oferta
+                </button>
+                <button onclick="switchTab('importar')" class="bg-unisapiens-navy hover:bg-unisapiens-darkNavy text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> Importar Planilha
+                </button>
+            </div>
+        </header>
+
+        <div class="p-8">
+            
+            <!-- 1. DASHBOARD (HOJE) -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border flex gap-4 items-center justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" placeholder="Filtrar por turma, professor ou sala..." class="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-unisapiens-orange">
+                    </div>
+                    <span class="text-xs text-gray-500">Exibindo as aulas da Sexta-Feira corrente</span>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-unisapiens-navy text-white text-xs uppercase tracking-wider">
+                                <th class="p-4">Turma / Disciplina / Professor</th>
+                                <th class="p-4">Formato</th>
+                                <th class="p-4">Sala / Laboratório</th>
+                                <th class="p-4">Prédio / Andar</th>
+                                <th class="p-4 text-center">Modo Alocação</th>
+                                <th class="p-4 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm" id="tbody-dashboard"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 2. GRADE DO SEMESTRE (MATRIZ DE OFERTA LIMPA) -->
+            <section id="tab-gerador" class="tab-content hidden space-y-5">
+                <div class="bg-white p-5 rounded-xl shadow-sm border space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-3">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-bold text-unisapiens-navy">Matriz de Oferta Acadêmica</h3>
+                            <span class="bg-gray-100 text-gray-700 font-mono text-xs px-2.5 py-1 rounded-md font-bold">2026.2</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check text-green-500"></i> 0 Conflitos Detectados
+                            </span>
+                            <button onclick="executarGerador()" class="bg-unisapiens-navy hover:bg-unisapiens-darkNavy text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrows-rotate"></i> Recalcular Alocações
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
+                            <select id="gen-filter-turma" onchange="filterGradeSemestre()" class="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-unisapiens-orange">
+                                <option value="TODOS">Todos os Cursos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
+                            <select id="gen-filter-dia" onchange="filterGradeSemestre()" class="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-unisapiens-orange">
+                                <option value="TODOS">Todos os Dias</option>
+                                <option value="SEGUNDA">Segunda-Feira</option>
+                                <option value="TERÇA">Terça-Feira</option>
+                                <option value="QUARTA">Quarta-Feira</option>
+                                <option value="QUINTA">Quinta-Feira</option>
+                                <option value="SEXTA">Sexta-Feira</option>
+                                <option value="SÁBADO">Sábado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
+                            <select id="gen-filter-prof" onchange="filterGradeSemestre()" class="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-unisapiens-orange">
+                                <option value="TODOS">Todos os Professores</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo de Ambiente</label>
+                            <select id="gen-filter-espaco" onchange="filterGradeSemestre()" class="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-unisapiens-orange">
+                                <option value="TODOS">Todos os Tipos</option>
+                                <option value="Laboratório/Prático">Laboratórios</option>
+                                <option value="Presencial Teórico">Salas Teóricas</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-unisapiens-navy text-white text-xs uppercase tracking-wider">
+                                <th class="p-3.5">Dia</th>
+                                <th class="p-3.5">Turma / Curso</th>
+                                <th class="p-3.5">Disciplina / Docente</th>
+                                <th class="p-3.5">Formato</th>
+                                <th class="p-3.5">Sala / Lab Alocado</th>
+                                <th class="p-3.5 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm" id="tbody-gerador"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. HORÁRIO DA SEMANA -->
+            <section id="tab-horario-semana" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border space-y-4">
+                    <h3 class="text-sm font-bold text-unisapiens-navy uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-filter text-unisapiens-orange"></i> Filtros do Quadro Geral
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
+                            <select id="filter-dia" onchange="filterSemana()" class="w-full border rounded-lg p-2 text-sm">
+                                <option value="TODOS">Todos os Dias</option>
+                                <option value="SEGUNDA">Segunda-Feira</option>
+                                <option value="TERÇA">Terça-Feira</option>
+                                <option value="QUARTA">Quarta-Feira</option>
+                                <option value="QUINTA">Quinta-Feira</option>
+                                <option value="SEXTA">Sexta-Feira</option>
+                                <option value="SÁBADO">Sábado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
+                            <select id="filter-prof" onchange="filterSemana()" class="w-full border rounded-lg p-2 text-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
+                            <select id="filter-turma" onchange="filterSemana()" class="w-full border rounded-lg p-2 text-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Busca Direta</label>
+                            <input type="text" id="filter-search" onkeyup="filterSemana()" placeholder="Ex: LAB01, Irvine..." class="w-full border rounded-lg p-2 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <table class="w-full text-left border-collapse" id="table-semana">
+                        <thead>
+                            <tr class="bg-unisapiens-navy text-white text-xs uppercase tracking-wider">
+                                <th class="p-4">Dia</th>
+                                <th class="p-4">Curso / Turma</th>
+                                <th class="p-4">Disciplina</th>
+                                <th class="p-4">Professor</th>
+                                <th class="p-4">Local</th>
+                                <th class="p-4 text-center">Formato</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm" id="tbody-semana"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. IMPORTAR PLANILHA -->
+            <section id="tab-importar" class="tab-content hidden space-y-6">
+                <div class="bg-white p-8 rounded-xl shadow-sm border max-w-2xl mx-auto text-center space-y-4">
+                    <div class="w-16 h-16 bg-orange-100 text-unisapiens-orange rounded-full flex items-center justify-center mx-auto text-2xl">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-unisapiens-navy">Importar Planilha de Oferta (.XLSX / .CSV)</h3>
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-unisapiens-orange transition cursor-pointer bg-gray-50">
+                        <i class="fa-regular fa-file-excel text-4xl text-green-600 mb-2"></i>
+                        <p class="text-sm font-semibold text-gray-700">Clique ou arraste o arquivo aqui</p>
+                    </div>
+                    <button class="bg-unisapiens-orange text-white px-6 py-2.5 rounded-lg text-sm font-bold w-full">Processar Arquivo</button>
+                </div>
+            </section>
+
+            <!-- 5. HISTÓRICO DE AVISOS -->
+            <section id="tab-historico" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <div class="p-4 border-b font-bold text-unisapiens-navy">Histórico de Disparos WhatsApp</div>
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead class="bg-gray-100 text-xs uppercase text-gray-600">
+                            <tr>
+                                <th class="p-3">Data/Hora</th>
+                                <th class="p-3">Turma</th>
+                                <th class="p-3">Mensagem</th>
+                                <th class="p-3 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="p-3 text-xs text-gray-500">20/10/2026 - 14:00</td>
+                                <td class="p-3 font-semibold">07º ENG. COMPUTAÇÃO</td>
+                                <td class="p-3">Aula de Programação Web confirmada no LAB01.</td>
+                                <td class="p-3 text-center"><span class="bg-green-100 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-bold">Enviado</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- CADASTROS BASE -->
+            <section id="tab-turmas" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-unisapiens-navy">Cursos & Turmas</h3>
+                    <button onclick="openModalTurma()" class="bg-unisapiens-orange text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-plus"></i> Nova Turma</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border p-4"><ul class="divide-y text-sm" id="lista-turmas"></ul></div>
+            </section>
+
+            <section id="tab-professores" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-unisapiens-navy">Corpo Docente</h3>
+                    <button onclick="openModalProfessor()" class="bg-unisapiens-orange text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-plus"></i> Novo Professor</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border p-4"><ul class="divide-y text-sm" id="lista-professores"></ul></div>
+            </section>
+
+            <section id="tab-salas" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-unisapiens-navy">Salas & Laboratórios</h3>
+                    <button onclick="openModalSala()" class="bg-unisapiens-orange text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-plus"></i> Novo Espaço</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border p-4"><ul class="divide-y text-sm" id="lista-salas"></ul></div>
+            </section>
+
+            <section id="tab-disciplinas" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-unisapiens-navy">Ofertas & Disciplinas</h3>
+                    <button onclick="openModalDisciplina()" class="bg-unisapiens-orange text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-plus"></i> Cadastrar Oferta</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border p-4"><ul class="divide-y text-sm" id="lista-disciplinas"></ul></div>
+            </section>
+
+            <section id="tab-whatsapp" class="tab-content hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border max-w-md mx-auto text-center space-y-4">
+                    <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl"><i class="fa-brands fa-whatsapp"></i></div>
+                    <h3 class="text-lg font-bold text-unisapiens-navy">Status do Bot WhatsApp</h3>
+                    <p class="text-xs text-green-600 font-bold bg-green-50 py-1.5 rounded-lg">● CONEXÃO ATIVA</p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAIS DE CADASTRO -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 class="text-lg font-bold text-unisapiens-navy">Alteração Pontual de Sala/Docente</h3>
+            <div class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">Novo Local</label><select id="modal-edit-sala" class="w-full border rounded-lg p-2.5"></select></div>
+                <div><label class="block font-semibold mb-1">Novo Docente</label><select id="modal-edit-prof" class="w-full border rounded-lg p-2.5"></select></div>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('editModal')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="saveEdit()" class="px-4 py-2 bg-unisapiens-orange text-white font-bold rounded-lg text-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalSala" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 class="text-lg font-bold text-unisapiens-navy">Cadastrar Sala / Lab</h3>
+            <div class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">Identificação</label><input id="sala-nome" type="text" placeholder="Ex: LAB01, IRVINE" class="w-full border rounded-lg p-2.5"></div>
+                <div><label class="block font-semibold mb-1">Tipo</label><select id="sala-tipo" class="w-full border rounded-lg p-2.5"><option value="Laboratório/Prático">Laboratório/Prático</option><option value="Presencial Teórico">Presencial Teórico</option></select></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block font-semibold mb-1">Capacidade</label><input id="sala-cap" type="number" placeholder="Ex: 50" class="w-full border rounded-lg p-2.5"></div>
+                    <div><label class="block font-semibold mb-1">Prédio</label><input id="sala-predio" type="text" placeholder="Ex: Central / Térreo" class="w-full border rounded-lg p-2.5"></div>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('modalSala')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="salvarSala()" class="px-4 py-2 bg-unisapiens-orange text-white font-bold rounded-lg text-sm">Salvar Espaço</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalProfessor" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 class="text-lg font-bold text-unisapiens-navy">Cadastrar Professor</h3>
+            <div class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">Nome Completo</label><input id="prof-nome" type="text" placeholder="Ex: Prof. Anderson Seixas" class="w-full border rounded-lg p-2.5"></div>
+                <div><label class="block font-semibold mb-1">E-mail Institucional</label><input id="prof-email" type="email" placeholder="Ex: professor@unisapiens.edu.br" class="w-full border rounded-lg p-2.5"></div>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('modalProfessor')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="salvarProfessor()" class="px-4 py-2 bg-unisapiens-orange text-white font-bold rounded-lg text-sm">Salvar Docente</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalTurma" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 class="text-lg font-bold text-unisapiens-navy">Cadastrar Turma</h3>
+            <div class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">Nome / Período</label><input id="turma-nome" type="text" placeholder="Ex: Eng. Civil (4º Período)" class="w-full border rounded-lg p-2.5"></div>
+                <div><label class="block font-semibold mb-1">Qtd Alunos</label><input id="turma-alunos" type="number" placeholder="Ex: 38" class="w-full border rounded-lg p-2.5"></div>
+                <div><label class="block font-semibold mb-1">Link WhatsApp</label><input id="turma-wa" type="text" placeholder="Ex: chat.whatsapp.com/..." class="w-full border rounded-lg p-2.5"></div>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('modalTurma')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="salvarTurma()" class="px-4 py-2 bg-unisapiens-orange text-white font-bold rounded-lg text-sm">Salvar Turma</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalDisciplina" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-unisapiens-navy">Cadastrar Oferta de Disciplina</h3>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block font-semibold mb-1">Turma Alvo</label><select id="disc-turma" class="w-full border rounded-lg p-2.5"></select></div>
+                    <div><label class="block font-semibold mb-1">Nome Disciplina</label><input id="disc-nome" type="text" placeholder="Ex: Programação Web..." class="w-full border rounded-lg p-2.5"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="block font-semibold mb-1">Formato</label><select id="disc-formato" class="w-full border rounded-lg p-2.5"><option value="Presencial">Presencial</option><option value="Híbrida">Híbrida</option></select></div>
+                    <div><label class="block font-semibold mb-1">CH Teórica</label><input id="disc-cht" type="text" placeholder="Ex: 40h" class="w-full border rounded-lg p-2.5"></div>
+                    <div><label class="block font-semibold mb-1">CH Prática</label><input id="disc-chp" type="text" placeholder="Ex: 20h" class="w-full border rounded-lg p-2.5"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block font-semibold mb-1">Professor Responsável</label><select id="disc-prof" class="w-full border rounded-lg p-2.5"></select></div>
+                    <div><label class="block font-semibold mb-1">Dia da Semana</label><select id="disc-dia" class="w-full border rounded-lg p-2.5"><option value="SEGUNDA">Segunda-Feira</option><option value="TERÇA">Terça-Feira</option><option value="QUARTA">Quarta-Feira</option><option value="QUINTA">Quinta-Feira</option><option value="SEXTA">Sexta-Feira</option><option value="SÁBADO">Sábado</option></select></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block font-semibold mb-1">Nº Alunos</label><input id="disc-alunos" type="number" placeholder="Ex: 38" class="w-full border rounded-lg p-2.5"></div>
+                    <div><label class="block font-semibold mb-1">Requisito Espaço</label><select id="disc-reqespaco" class="w-full border rounded-lg p-2.5"><option value="Laboratório/Prático">Exige Laboratório/Prático</option><option value="Presencial Teórico">Apenas Sala Teórica</option></select></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block font-semibold mb-1">Bloquear Sala (Lock)</label><select id="disc-lock-sala" class="w-full border rounded-lg p-2.5"></select></div>
+                    <div><label class="block font-semibold mb-1">Ativar Rodízio?</label><select id="disc-rodizio" class="w-full border rounded-lg p-2.5"><option value="Não">Não</option><option value="Sim (1x1)">Sim (1x1)</option><option value="Sim (2x2)">Sim (2x2)</option></select></div>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('modalDisciplina')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="salvarDisciplina()" class="px-4 py-2 bg-unisapiens-orange text-white font-bold rounded-lg text-sm">Salvar Oferta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="whatsappModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+            <h3 class="text-lg font-bold text-unisapiens-navy"><i class="fa-brands fa-whatsapp text-green-500"></i> Enviar Notificação</h3>
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-xs font-mono text-gray-800 space-y-1">
+                <p class="font-bold text-green-800">📲 [AVISO ACADÊMICO - UNISAPIENS]</p>
+                <p id="wa-preview-text">Atenção alunos!</p>
+            </div>
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeModal('whatsappModal')" class="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button onclick="sendNotice()" class="px-4 py-2 bg-green-600 text-white font-bold rounded-lg text-sm">Enviar Disparo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sidebarOpen = true;
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const texts = document.querySelectorAll('.sidebar-text');
+            if (sidebarOpen) {
+                sidebar.classList.remove('w-64'); sidebar.classList.add('w-16');
+                texts.forEach(t => t.classList.add('hidden'));
+                sidebarOpen = false;
+            } else {
+                sidebar.classList.remove('w-16'); sidebar.classList.add('w-64');
+                texts.forEach(t => t.classList.remove('hidden'));
+                sidebarOpen = true;
+            }
+        }
+
+        const db = {
+            professores: [
+                { id: 201, nome: "Prof. Anderson Seixas", email: "anderson@unisapiens.edu.br" },
+                { id: 202, nome: "Prof. Benito Franco", email: "benito@unisapiens.edu.br" },
+                { id: 203, nome: "Profa. Kamilla Ramires May", email: "kamilla@unisapiens.edu.br" }
+            ],
+            salas: [
+                { id: 301, nome: "LAB01", tipo: "Laboratório/Prático", cap: 40, predio: "Central / Térreo" },
+                { id: 302, nome: "LAB02-50", tipo: "Laboratório/Prático", cap: 50, predio: "Central / Térreo" },
+                { id: 303, nome: "IRVINE", tipo: "Presencial Teórico", cap: 50, predio: "Central / 2º Piso" }
+            ],
+            turmas: [
+                { id: 101, nome: "07º/05º ENG. COMPUTAÇÃO", alunos: 38, wa: "chat.whatsapp.com/Comp2026" },
+                { id: 102, nome: "02º B ENG. SOFTWARE", alunos: 42, wa: "chat.whatsapp.com/Soft2026" },
+                { id: 103, nome: "04º ENG. CIVIL", alunos: 32, wa: "chat.whatsapp.com/Civil2026" }
+            ],
+            disciplinas: [
+                { id: 401, turma: "07º/05º ENG. COMPUTAÇÃO", nome: "Programação Web", formato: "Presencial", cht: "40h", chp: "20h", prof: "Prof. Anderson Seixas", dia: "SEXTA", alunos: 38, reqespaco: "Laboratório/Prático", lockSala: "LAB01", rodizio: "Sim (1x1)", salaAlocada: "LAB01" },
+                { id: 402, turma: "02º B ENG. SOFTWARE", nome: "Cálculo II", formato: "Presencial", cht: "60h", chp: "0h", prof: "Prof. Benito Franco", dia: "SEXTA", alunos: 42, reqespaco: "Presencial Teórico", lockSala: "IRVINE", rodizio: "Não", salaAlocada: "IRVINE" },
+                { id: 403, turma: "04º ENG. CIVIL", nome: "Resistência dos Materiais", formato: "Presencial", cht: "60h", chp: "0h", prof: "Profa. Kamilla Ramires May", dia: "SEGUNDA", alunos: 32, reqespaco: "Presencial Teórico", lockSala: "", rodizio: "Não", salaAlocada: "IRVINE" }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { renderAll(); });
+
+        function renderAll() {
+            renderProfessores(); renderSalas(); renderTurmas(); renderDisciplinas();
+            renderDashboard(); renderSemana(); renderGerador(); populateDropdowns();
+        }
+
+        function populateDropdowns() {
+            const selectProf = document.getElementById('disc-prof');
+            const selectProfFilter = document.getElementById('filter-prof');
+            const selectGenProfFilter = document.getElementById('gen-filter-prof');
+            const selectEditProf = document.getElementById('modal-edit-prof');
+            
+            selectProf.innerHTML = '';
+            selectProfFilter.innerHTML = '<option value="TODOS">Todos os Professores</option>';
+            selectGenProfFilter.innerHTML = '<option value="TODOS">Todos os Professores</option>';
+            selectEditProf.innerHTML = '';
+
+            db.professores.forEach(p => {
+                selectProf.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
+                selectProfFilter.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
+                selectGenProfFilter.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
+                selectEditProf.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
+            });
+
+            const selectTurma = document.getElementById('disc-turma');
+            const selectTurmaFilter = document.getElementById('filter-turma');
+            const selectGenTurmaFilter = document.getElementById('gen-filter-turma');
+            selectTurma.innerHTML = '';
+            selectTurmaFilter.innerHTML = '<option value="TODOS">Todas as Turmas</option>';
+            selectGenTurmaFilter.innerHTML = '<option value="TODOS">Todos os Cursos</option>';
+
+            db.turmas.forEach(t => {
+                selectTurma.innerHTML += `<option value="${t.nome}">${t.nome}</option>`;
+                selectTurmaFilter.innerHTML += `<option value="${t.nome}">${t.nome}</option>`;
+                selectGenTurmaFilter.innerHTML += `<option value="${t.nome}">${t.nome}</option>`;
+            });
+
+            const selectLockSala = document.getElementById('disc-lock-sala');
+            const selectEditSala = document.getElementById('modal-edit-sala');
+            selectLockSala.innerHTML = '<option value="">Nenhuma (Automático)</option>';
+            selectEditSala.innerHTML = '';
+
+            db.salas.forEach(s => {
+                selectLockSala.innerHTML += `<option value="${s.nome}">${s.nome} (${s.tipo})</option>`;
+                selectEditSala.innerHTML += `<option value="${s.nome}">${s.nome} (${s.tipo})</option>`;
+            });
+        }
+
+        function renderProfessores() {
+            document.getElementById('lista-professores').innerHTML = db.professores.map(p => `<li class="py-2.5 flex justify-between items-center"><div><span class="font-bold text-gray-900">${p.nome}</span><p class="text-xs text-gray-500">${p.email}</p></div><span class="text-xs text-gray-400">ID: ${p.id}</span></li>`).join('');
+        }
+
+        function renderSalas() {
+            document.getElementById('lista-salas').innerHTML = db.salas.map(s => `<li class="py-3 flex justify-between items-center"><div><span class="font-bold text-unisapiens-orange">${s.nome}</span><span class="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded ml-2">${s.tipo}</span><p class="text-xs text-gray-500 mt-0.5">Capacidade: ${s.cap} alunos | ${s.predio}</p></div><span class="text-xs text-gray-400">ID: ${s.id}</span></li>`).join('');
+        }
+
+        function renderTurmas() {
+            document.getElementById('lista-turmas').innerHTML = db.turmas.map(t => `<li class="py-3 flex justify-between items-center"><div><p class="font-bold text-gray-900">${t.nome}</p><p class="text-xs text-gray-500">Alunos: ${t.alunos} | WA: ${t.wa}</p></div><span class="text-xs text-gray-400">ID: ${t.id}</span></li>`).join('');
+        }
+
+        function renderDisciplinas() {
+            document.getElementById('lista-disciplinas').innerHTML = db.disciplinas.map(d => `<li class="py-3 flex justify-between items-center"><div><p class="font-bold text-gray-900">${d.nome} — <span class="text-xs font-normal text-gray-600">${d.turma}</span></p><p class="text-xs text-gray-500">${d.prof} | ${d.dia} | CH: ${d.cht}/${d.chp}</p></div><span class="text-xs text-gray-400">ID: ${d.id}</span></li>`).join('');
+        }
+
+        function renderDashboard() {
+            const sextas = db.disciplinas.filter(d => d.dia === 'SEXTA');
+            document.getElementById('tbody-dashboard').innerHTML = sextas.map(d => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4"><div class="font-bold text-gray-900">${d.turma}</div><div class="text-xs text-gray-600">${d.nome} - ${d.prof}</div></td>
+                    <td class="p-4"><span class="text-xs bg-gray-100 px-2 py-1 rounded font-semibold">${d.formato}</span></td>
+                    <td class="p-4 font-bold text-unisapiens-orange">${d.salaAlocada}</td>
+                    <td class="p-4 text-xs text-gray-500">Prédio Central</td>
+                    <td class="p-4 text-center"><span class="bg-orange-100 text-unisapiens-orange text-xs px-2.5 py-1 rounded-full font-bold">${d.rodizio !== 'Não' ? 'Rodízio Ativo' : 'Alocação Fixa'}</span></td>
+                    <td class="p-4 text-center">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="openEditModal('${d.id}')" class="p-2 text-gray-600 hover:text-unisapiens-orange"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="openWhatsAppModal('${d.turma}', '${d.nome}', '${d.salaAlocada}', '${d.prof}')" class="bg-unisapiens-orange text-white px-3 py-1.5 rounded-lg text-xs font-semibold"><i class="fa-brands fa-whatsapp"></i> Aviso</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderSemana() {
+            document.getElementById('tbody-semana').innerHTML = db.disciplinas.map(d => `
+                <tr class="semana-row hover:bg-gray-50" data-dia="${d.dia}" data-prof="${d.prof}" data-turma="${d.turma}">
+                    <td class="p-4 font-bold text-gray-700">${d.dia}</td>
+                    <td class="p-4 font-semibold">${d.turma}</td>
+                    <td class="p-4">${d.nome} <span class="text-xs text-gray-400">(${d.cht}/${d.chp})</span></td>
+                    <td class="p-4">${d.prof}</td>
+                    <td class="p-4 font-bold text-unisapiens-navy">${d.salaAlocada}</td>
+                    <td class="p-4 text-center"><span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">${d.formato}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderGerador() {
+            document.getElementById('tbody-gerador').innerHTML = db.disciplinas.map(d => `
+                <tr class="gen-row hover:bg-gray-50" data-dia="${d.dia}" data-prof="${d.prof}" data-turma="${d.turma}" data-espaco="${d.reqespaco}">
+                    <td class="p-3.5 font-bold text-gray-700">${d.dia}</td>
+                    <td class="p-3.5 font-semibold">${d.turma} <span class="text-xs font-normal text-gray-500">(${d.alunos} alunos)</span></td>
+                    <td class="p-3.5">${d.nome} <div class="text-xs text-gray-500">${d.prof}</div></td>
+                    <td class="p-3.5"><span class="text-xs bg-gray-100 px-2 py-0.5 rounded">${d.formato}</span></td>
+                    <td class="p-3.5 font-bold text-unisapiens-orange">${d.salaAlocada} <span class="text-xs font-normal text-gray-500">(${d.reqespaco})</span></td>
+                    <td class="p-3.5 text-center"><span class="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full font-bold">OK</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function filterGradeSemestre() {
+            const dia = document.getElementById('gen-filter-dia').value;
+            const prof = document.getElementById('gen-filter-prof').value;
+            const turma = document.getElementById('gen-filter-turma').value;
+            const espaco = document.getElementById('gen-filter-espaco').value;
+
+            document.querySelectorAll('.gen-row').forEach(row => {
+                const matchDia = (dia === 'TODOS' || row.dataset.dia === dia);
+                const matchProf = (prof === 'TODOS' || row.dataset.prof === prof);
+                const matchTurma = (turma === 'TODOS' || row.dataset.turma === turma);
+                const matchEspaco = (espaco === 'TODOS' || row.dataset.espaco === espaco);
+
+                row.style.display = (matchDia && matchProf && matchTurma && matchEspaco) ? '' : 'none';
+            });
+        }
+
+        function salvarSala() {
+            const nome = document.getElementById('sala-nome').value;
+            const tipo = document.getElementById('sala-tipo').value;
+            const cap = document.getElementById('sala-cap').value;
+            const predio = document.getElementById('sala-predio').value;
+            if(!nome || !cap) return alert('Preencha os campos!');
+            db.salas.push({ id: Date.now(), nome, tipo, cap, predio });
+            renderAll(); closeModal('modalSala');
+        }
+
+        function salvarProfessor() {
+            const nome = document.getElementById('prof-nome').value;
+            const email = document.getElementById('prof-email').value;
+            if(!nome) return alert('Informe o nome!');
+            db.professores.push({ id: Date.now(), nome, email });
+            renderAll(); closeModal('modalProfessor');
+        }
+
+        function salvarTurma() {
+            const nome = document.getElementById('turma-nome').value;
+            const alunos = document.getElementById('turma-alunos').value;
+            const wa = document.getElementById('turma-wa').value;
+            if(!nome) return alert('Informe a turma!');
+            db.turmas.push({ id: Date.now(), nome, alunos, wa });
+            renderAll(); closeModal('modalTurma');
+        }
+
+        function salvarDisciplina() {
+            const turma = document.getElementById('disc-turma').value;
+            const nome = document.getElementById('disc-nome').value;
+            const formato = document.getElementById('disc-formato').value;
+            const cht = document.getElementById('disc-cht').value || '40h';
+            const chp = document.getElementById('disc-chp').value || '0h';
+            const prof = document.getElementById('disc-prof').value;
+            const dia = document.getElementById('disc-dia').value;
+            const alunos = document.getElementById('disc-alunos').value || 30;
+            const reqespaco = document.getElementById('disc-reqespaco').value;
+            const lockSala = document.getElementById('disc-lock-sala').value;
+            const rodizio = document.getElementById('disc-rodizio').value;
+
+            if(!nome) return alert('Informe o nome!');
+            const salaAlocada = lockSala ? lockSala : (reqespaco === 'Laboratório/Prático' ? 'LAB01' : 'IRVINE');
+
+            db.disciplinas.push({ id: Date.now(), turma, nome, formato, cht, chp, prof, dia, alunos, reqespaco, lockSala, rodizio, salaAlocada });
+            renderAll(); closeModal('modalDisciplina');
+        }
+
+        let selectedEditId = null;
+        function openEditModal(id) { selectedEditId = id; document.getElementById('editModal').classList.remove('hidden'); }
+        function saveEdit() {
+            const novaSala = document.getElementById('modal-edit-sala').value;
+            const novoProf = document.getElementById('modal-edit-prof').value;
+            const item = db.disciplinas.find(d => d.id == selectedEditId);
+            if(item) { item.salaAlocada = novaSala; item.prof = novoProf; }
+            renderAll(); closeModal('editModal');
+        }
+
+        function executarGerador() { alert('Alocações atualizadas e recalculadas!'); }
+
+        function filterSemana() {
+            const dia = document.getElementById('filter-dia').value;
+            const prof = document.getElementById('filter-prof').value;
+            const turma = document.getElementById('filter-turma').value;
+            const search = document.getElementById('filter-search').value.toLowerCase();
+
+            document.querySelectorAll('.semana-row').forEach(row => {
+                const matchDia = (dia === 'TODOS' || row.dataset.dia === dia);
+                const matchProf = (prof === 'TODOS' || row.dataset.prof === prof);
+                const matchTurma = (turma === 'TODOS' || row.dataset.turma === turma);
+                const matchSearch = row.innerText.toLowerCase().includes(search);
+                row.style.display = (matchDia && matchProf && matchTurma && matchSearch) ? '' : 'none';
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-unisapiens-orange', 'text-white');
+                btn.classList.add('text-gray-300');
+            });
+            const activeBtn = document.getElementById('btn-' + tabId);
+            if(activeBtn) { activeBtn.classList.add('active', 'bg-unisapiens-orange', 'text-white'); }
+
+            const titles = {
+                'dashboard': 'HORÁRIO DO DIA: SEXTA-FEIRA',
+                'gerador': 'MATRIZ DE OFERTA ACADÊMICA',
+                'horario-semana': 'QUADRO GERAL DA SEMANA',
+                'importar': 'IMPORTAÇÃO DE PLANILHA',
+                'historico': 'HISTÓRICO DE DISPAROS',
+                'turmas': 'CADASTRO DE TURMAS',
+                'professores': 'CORPO DOCENTE',
+                'salas': 'CADASTRO DE SALAS E LABS',
+                'disciplinas': 'CADASTRO DE OFERTAS',
+                'whatsapp': 'BOT WHATSAPP'
+            };
+            document.getElementById('page-title').innerText = titles[tabId] || 'FACULDADE UNISAPIENS';
+        }
+
+        function openModalSala() { document.getElementById('modalSala').classList.remove('hidden'); }
+        function openModalProfessor() { document.getElementById('modalProfessor').classList.remove('hidden'); }
+        function openModalTurma() { document.getElementById('modalTurma').classList.remove('hidden'); }
+        function openModalDisciplina() { document.getElementById('modalDisciplina').classList.remove('hidden'); }
+
+        function openWhatsAppModal(turma, disciplina, sala, prof) {
+            document.getElementById('wa-preview-text').innerText = `Turma ${turma}: A aula de ${disciplina} hoje será na sala/lab ${sala} com o(a) ${prof}.`;
+            document.getElementById('whatsappModal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+        function sendNotice() { alert('Aviso enviado com sucesso!'); closeModal('whatsappModal'); }
+    </script>
+</body>
+</html>

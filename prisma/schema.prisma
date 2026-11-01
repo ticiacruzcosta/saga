@@ -1,0 +1,312 @@
+// Banco do SAGA (Faculdade Unisapiens).
+// Depois de alterar este arquivo: npx prisma db push
+// SQLite não suporta enum: campos com lista fixa de valores são String, com os valores aceitos comentados.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// =============================================================================
+// CADASTROS BASE
+// =============================================================================
+
+model Curso {
+  id    Int    @id @default(autoincrement())
+  nome  String @unique // "SIST. DE INFORM."
+  sigla String @unique // "SI"
+
+  matriz MatrizItem[]
+  grupos GrupoAlunos[]
+
+  @@map("cursos")
+}
+
+model Ambiente {
+  id Int @id @default(autoincrement())
+
+  // "LAB01", "LAB02", "SALA26", "LABMULTI", "EAD"
+  codigo String @unique
+  nome   String
+
+  // SALA | LABORATORIO | LAB_ESPECIFICO | SALA_ESPECIFICA | EAD
+  tipo String
+
+  // RN-07: teto de alunos. LAB01=50, LAB02=35, LAB04=40, LAB05=40.
+  capacidade Int?
+
+  // Localização ("Central / Térreo")
+  predio String?
+
+  // Se false, nunca entra em rodízio (lab de química, sala 26)
+  aceitaRodizio Boolean @default(true)
+
+  turmas           Turma[]
+  disciplinasFixas Disciplina[] @relation("AmbienteFixo")
+
+  @@map("ambientes")
+}
+
+model Professor {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+
+  email String?
+
+  // HORISTA | INTEGRAL | VISITANTE
+  vinculo String?
+
+  // RN-01: dias em que não pode dar aula. "SEGUNDA,SEXTA"
+  diasIndisponiveis String?
+
+  ativo Boolean @default(true)
+
+  // Disciplinas que o professor já lecionou (usado nas sugestões)
+  habilitacoes ProfessorDisciplina[]
+  turmas       Turma[]
+
+  @@map("professores")
+}
+
+// Disciplina e suas regras. Curso e período ficam em MatrizItem.
+model Disciplina {
+  id Int @id @default(autoincrement())
+
+  // Código da matriz ("202961"); null = curso sem matriz cadastrada.
+  codigo String? @unique
+  nome   String
+
+  // PRESENCIAL | HIBRIDA | SINCRONA | ASSINCRONA (padrão; Turma.formato pode sobrescrever)
+  formato String @default("PRESENCIAL")
+
+  // SALA | LABORATORIO | LAB_OU_SALA | LAB_ESPECIFICO | SALA_ESPECIFICA | EAD
+  tipoAmbiente String @default("SALA")
+
+  // RN-10: disciplina presa a um ambiente
+  ambienteFixoId Int?
+  ambienteFixo   Ambiente? @relation("AmbienteFixo", fields: [ambienteFixoId], references: [id])
+
+  // RN-06: pode dividir laboratório com disciplina parceira, alternando
+  permiteRodizio Boolean @default(false)
+
+  // NAO | 1X1 | 2X2
+  tipoRodizio String @default("NAO")
+
+  // Carga horária em horas
+  cargaTeorica Int?
+  cargaPratica Int?
+
+  // RN-11: duração de UM encontro, em minutos. 165 = normal, 60 = extensão.
+  duracaoMinutos Int @default(165)
+
+  // RN-09: teto próprio (Resistência dos Materiais = 40, extensão = 40)
+  limiteAlunos Int?
+
+  // Quantas turmas normalmente se abre
+  qtdTurmasPadrao Int @default(1)
+
+  // RN-12: sugestão, não obrigação
+  preferenciaDia String?
+
+  observacoes String?
+
+  matriz       MatrizItem[]
+  turmas       Turma[]
+  habilitacoes ProfessorDisciplina[]
+  rodiziosA    Rodizio[]             @relation("RodizioA")
+  rodiziosB    Rodizio[]             @relation("RodizioB")
+
+  @@map("disciplinas")
+}
+
+// Matriz curricular: em qual curso e período cada disciplina está.
+model MatrizItem {
+  id Int @id @default(autoincrement())
+
+  cursoId Int
+  curso   Curso @relation(fields: [cursoId], references: [id])
+
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+
+  periodo Int // 1 a 10
+
+  @@unique([cursoId, disciplinaId])
+  @@index([cursoId, periodo])
+  @@map("matriz_itens")
+}
+
+model ProfessorDisciplina {
+  professorId  Int
+  disciplinaId Int
+
+  professor  Professor  @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  disciplina Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+
+  @@id([professorId, disciplinaId])
+  @@map("professor_disciplina")
+}
+
+// RN-06: pares de disciplinas em rodízio de laboratório.
+model Rodizio {
+  id Int @id @default(autoincrement())
+
+  disciplinaAId Int
+  disciplinaBId Int
+  disciplinaA   Disciplina @relation("RodizioA", fields: [disciplinaAId], references: [id])
+  disciplinaB   Disciplina @relation("RodizioB", fields: [disciplinaBId], references: [id])
+
+  observacao String?
+
+  @@unique([disciplinaAId, disciplinaBId])
+  @@map("rodizios")
+}
+
+// Turma de alunos (tela "Cursos & Turmas"). Ex.: SIST. DE INFORM. 4º A.
+model GrupoAlunos {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+
+  cursoId Int
+  curso   Curso @relation(fields: [cursoId], references: [id])
+
+  periodo Int?
+  letra   String @default("A")
+
+  // NOTURNO | VESPERTINO
+  turno String @default("NOTURNO")
+
+  qtdAlunos    Int?
+  linkWhatsapp String?
+
+  turmas Turma[]
+  avisos Aviso[]
+
+  @@map("grupos_alunos")
+}
+
+// =============================================================================
+// OFERTA DO SEMESTRE
+// =============================================================================
+
+model Oferta {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique // "2026.2"
+
+  // RASCUNHO | PUBLICADA | ARQUIVADA
+  status String @default("RASCUNHO")
+
+  criadaEm DateTime @default(now())
+
+  turmas Turma[]
+
+  @@map("ofertas")
+}
+
+// Uma aula da oferta (uma linha da planilha de oferta).
+model Turma {
+  id Int @id @default(autoincrement())
+
+  ofertaId Int
+  oferta   Oferta @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+
+  disciplinaId Int
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+
+  grupoId Int?
+  grupo   GrupoAlunos? @relation(fields: [grupoId], references: [id])
+
+  // RN-08: "A", "B", "C", "D"
+  letra String @default("A")
+
+  professorId Int?
+  professor   Professor? @relation(fields: [professorId], references: [id])
+
+  ambienteId Int?
+  ambiente   Ambiente? @relation(fields: [ambienteId], references: [id])
+
+  // PRESENCIAL | HIBRIDA | SINCRONA | ASSINCRONA
+  // Por oferta: a mesma disciplina pode ter formatos diferentes em cada curso.
+  formato String?
+
+  // SEGUNDA | TERCA | QUARTA | QUINTA | SEXTA | SABADO
+  // null quando assíncrona ou quando a planilha não informa (RN-04)
+  diaSemana String?
+
+  // Minutos desde a meia-noite (19:00 = 1140)
+  horaInicio Int?
+  horaFim    Int?
+
+  // NOTURNO | VESPERTINO
+  turno String @default("NOTURNO")
+
+  vagas Int?
+
+  // Comunalidade: os alunos assistem à turma indicada (sem aula própria).
+  consomeDeId  Int?
+  consomeDe    Turma?  @relation("Comunalidade", fields: [consomeDeId], references: [id])
+  consumidoras Turma[] @relation("Comunalidade")
+
+  // Como veio da planilha (conferência da importação)
+  nomeNaPlanilha    String? // "OPTATIVA I - LIBRAS"
+  periodoNaPlanilha String? // "4º - A"
+  origemLinha       Int? // linha da aba Página1
+
+  observacao String?
+
+  alteracoes Alteracao[]
+
+  @@index([ofertaId, diaSemana])
+  @@index([professorId])
+  @@map("turmas")
+}
+
+// =============================================================================
+// OPERACIONAL
+// =============================================================================
+
+// Alterações: trocas pontuais do dia (RN-16) e realocações definitivas.
+model Alteracao {
+  id Int @id @default(autoincrement())
+
+  turmaId Int
+  turma   Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  data DateTime
+
+  // TROCA_SALA | TROCA_PROFESSOR (só no dia) | REALOCACAO (vale o semestre)
+  tipo String
+
+  valorAnterior String?
+  valorNovo     String?
+  motivo        String?
+
+  mensagemGerada String?
+  enviada        Boolean  @default(false)
+  criadaEm       DateTime @default(now())
+
+  @@index([data])
+  @@map("alteracoes")
+}
+
+// Avisos de WhatsApp gerados pelo sistema (tela "Histórico de Avisos").
+model Aviso {
+  id Int @id @default(autoincrement())
+
+  grupoId Int
+  grupo   GrupoAlunos @relation(fields: [grupoId], references: [id])
+
+  conteudo String
+
+  // PENDENTE | ENVIADO | ENTREGUE | FALHOU
+  status String @default("PENDENTE")
+
+  criadoEm DateTime @default(now())
+
+  @@index([criadoEm])
+  @@map("avisos")
+}
