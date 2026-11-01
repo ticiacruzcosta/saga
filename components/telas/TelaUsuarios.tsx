@@ -1,0 +1,101 @@
+"use client";
+
+// Usuários (só administradores): aprovar, desativar, excluir, mudar perfil e redefinir senha.
+
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { definirAcesso, definirAdmin, excluirUsuario, redefinirSenha } from "@/app/auth";
+import type { UsuarioLogado } from "@/lib/auth";
+import type { UsuarioVM } from "@/lib/tipos";
+
+export default function TelaUsuarios({ usuarios, eu }: { usuarios: UsuarioVM[]; eu: UsuarioLogado }) {
+  const router = useRouter();
+  const [pendente, iniciar] = useTransition();
+
+  function mudarAcesso(id: number, ativo: boolean, nome: string) {
+    if (!ativo && !confirm(`Desativar o acesso de ${nome}? A pessoa sai do sistema na hora.`)) return;
+    iniciar(async () => {
+      const r = await definirAcesso(id, ativo);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
+  function mudarPerfil(id: number, admin: boolean, nome: string) {
+    if (!confirm(admin ? `Tornar ${nome} administrador? Ele poderá aprovar, desativar e excluir contas.` : `Tirar ${nome} da administração?`)) return;
+    iniciar(async () => {
+      const r = await definirAdmin(id, admin);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
+  function removerUsuario(id: number, nome: string) {
+    if (!confirm(`Excluir a conta de ${nome}? Não dá para desfazer.`)) return;
+    iniciar(async () => {
+      const r = await excluirUsuario(id);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
+  function novaSenha(id: number, nome: string) {
+    if (!confirm(`Gerar uma senha provisória para ${nome}? A senha atual deixa de funcionar e a pessoa sai do sistema.`)) return;
+    iniciar(async () => {
+      const r = await redefinirSenha(id);
+      if (!r.ok) return alert(r.erro);
+      prompt(`Senha provisória de ${nome} (copie e repasse; ela não aparece de novo):`, r.senha);
+    });
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h3 className="font-bold text-[#1A2332]">Usuários</h3>
+        <p className="text-xs text-gray-500">Contas criadas na tela de login ficam aguardando aprovação até um administrador liberar aqui.</p>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <ul className="divide-y divide-gray-200 text-sm">
+          {usuarios.map((u) => {
+            const souEu = u.id === eu.id;
+            return (
+              <li key={u.id} className="py-3 flex flex-wrap justify-between items-center gap-3">
+                <div>
+                  <p className="font-bold text-gray-900">
+                    {u.nome} {souEu && <span className="text-xs font-normal text-gray-400">(você)</span>}
+                    {u.admin && <span className="ml-2 bg-[#1A2332] text-white text-[10px] px-2 py-0.5 rounded-full font-bold align-middle">Administrador</span>}
+                  </p>
+                  <p className="text-xs text-gray-500">{u.email} · desde {u.desde}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {u.ativo ? (
+                    <span className="bg-green-100 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-bold">Ativo</span>
+                  ) : (
+                    <span className="bg-red-50 text-red-600 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                      <i className="fa-solid fa-circle-exclamation mr-1"></i>Aguardando aprovação
+                    </span>
+                  )}
+                  {!souEu && (u.ativo ? (
+                    <button onClick={() => mudarAcesso(u.id, false, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#F39200]">Desativar</button>
+                  ) : (
+                    <button onClick={() => mudarAcesso(u.id, true, u.nome)} disabled={pendente} className="px-3 py-1.5 bg-[#F39200] text-white rounded-lg text-xs font-bold">Aprovar</button>
+                  ))}
+                  {!souEu && u.ativo && (
+                    <button onClick={() => mudarPerfil(u.id, !u.admin, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
+                      {u.admin ? "Remover admin" : "Tornar admin"}
+                    </button>
+                  )}
+                  {!souEu && u.ativo && (
+                    <button onClick={() => novaSenha(u.id, u.nome)} disabled={pendente} title="Gerar senha provisória" className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
+                      <i className="fa-solid fa-key mr-1"></i>Redefinir senha
+                    </button>
+                  )}
+                  {!souEu && (
+                    <button onClick={() => removerUsuario(u.id, u.nome)} disabled={pendente} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}

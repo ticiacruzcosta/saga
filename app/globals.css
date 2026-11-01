@@ -1,1 +1,52 @@
 @import "tailwindcss";
+
+/* Tema escuro do sistema (botão lua/sol no cabeçalho). As utilidades do Tailwind leem as cores de
+   variáveis CSS: invertendo a escala de cinza, fundo claro vira escuro e texto escuro vira claro.
+   Vale só dentro de .saga-app (a tela de login fica como está) e nunca na impressão. */
+@media screen {
+  :root[data-tema="escuro"] .saga-app {
+    color-scheme: dark;
+    --color-gray-50: #172033;
+    --color-gray-100: #223047;
+    --color-gray-200: #334155;
+    --color-gray-300: #475569;
+    --color-gray-400: #94a3b8;
+    --color-gray-500: #a3aec0;
+    --color-gray-600: #cbd5e1;
+    --color-gray-700: #e2e8f0;
+    --color-gray-800: #e5e7eb;
+    --color-gray-900: #f8fafc;
+    /* fundos coloridos claros viram tons translúcidos; o texto em cima deles clareia */
+    --color-red-50: rgb(220 38 38 / 0.16);
+    --color-red-100: rgb(220 38 38 / 0.24);
+    --color-red-200: rgb(220 38 38 / 0.4);
+    --color-red-700: #fca5a5;
+    --color-red-800: #fecaca;
+    --color-green-50: rgb(22 163 74 / 0.16);
+    --color-green-100: rgb(22 163 74 / 0.24);
+    --color-green-200: rgb(22 163 74 / 0.4);
+    --color-green-700: #86efac;
+    --color-green-800: #bbf7d0;
+    --color-yellow-50: rgb(202 138 4 / 0.16);
+    --color-yellow-100: rgb(202 138 4 / 0.24);
+    --color-yellow-200: rgb(202 138 4 / 0.4);
+    --color-yellow-300: rgb(202 138 4 / 0.55);
+    --color-yellow-700: #fde047;
+    --color-yellow-800: #fde68a;
+    --color-yellow-900: #fef3c7;
+    --color-orange-50: rgb(243 146 0 / 0.14);
+    --color-orange-100: rgb(243 146 0 / 0.22);
+    --color-blue-50: rgb(37 99 235 / 0.18);
+    --color-blue-600: #93c5fd;
+    --color-blue-700: #bfdbfe;
+    --color-purple-500: #c084fc;
+    --color-teal-500: #2dd4bf;
+    background: #0f172a;
+  }
+  :root[data-tema="escuro"] .saga-app .bg-white { background-color: #1e293b; }
+  :root[data-tema="escuro"] .saga-app .bg-\[\#F4F6F9\] { background-color: #0f172a; }
+  :root[data-tema="escuro"] .saga-app .text-\[\#1A2332\] { color: #f1f5f9; }
+  :root[data-tema="escuro"] .saga-app input,
+  :root[data-tema="escuro"] .saga-app select,
+  :root[data-tema="escuro"] .saga-app textarea { background-color: #0f172a; color: #e5e7eb; }
+}

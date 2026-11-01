@@ -8,7 +8,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "banco": "python seed.py --recriar --relatorio conferencia.xlsx",
-    "banco:studio": "prisma studio"
+    "banco:studio": "prisma studio",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -24,6 +25,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

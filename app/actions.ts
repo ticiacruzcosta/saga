@@ -3,6 +3,7 @@
 import { exigirUsuario } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { fotoTurmas, registrar } from "@/lib/atividade";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio } from "@/lib/dados";
 import { norm } from "@/lib/texto";
 import { DIA_BANCO, ehLab, hojeData } from "@/lib/vm";
@@ -138,6 +139,9 @@ async function planejar(input: OfertaInput): Promise<{ conflitos: Conflito[]; pl
         pares
       );
 
+      if (prof && diaBanco && !assincrona && prof.diasIndisponiveis?.split(",").includes(diaBanco)) {
+        conflitos.push({ regra: "RN-01", gravidade: "ERRO", mensagem: `${prof.nome} não dá aula neste dia (cadastro do professor).` });
+      }
       if (prof && disc && habilitacoes.length > 0 && !habilitacoes.some((h) => h.disciplinaId === disc!.id)) {
         conflitos.push({ regra: "RN-HAB", gravidade: "AVISO", mensagem: `${prof.nome} nunca lecionou ${disc.nome}. Confirme se está certo.` });
       }
@@ -183,7 +187,7 @@ export async function conferirOferta(input: OfertaInput): Promise<ResultadoOfert
 
 /** "Salvar Oferta": confere de novo no servidor e grava a turma (e a disciplina, se for nova). */
 export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOferta> {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const r = await planejar(input);
   const conflitos = r.conflitos.map((c) => ({ gravidade: c.gravidade, mensagem: c.mensagem }));
   if (!r.plano || r.erro || conflitos.some((c) => c.gravidade === "ERRO")) {
@@ -215,6 +219,7 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
     diaSemana: p.diaBanco, horaInicio: p.inicio, horaFim: p.fim, turno: grupo.turno, vagas: p.vagas,
   };
   if (input.turmaId) {
+    const foto = await fotoTurmas(input.turmaId);
     const antes = await prisma.turma.findUnique({ where: { id: input.turmaId }, include: { disciplina: true } });
     const mesmoNome = antes && norm(input.nome) === norm(antes.nomeNaPlanilha ?? antes.disciplina.nome);
     await prisma.$transaction([
@@ -232,8 +237,10 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
         },
       }),
     ]);
+    await registrar(eu, "Edição de aula", `${input.nome.trim()} (${grupo.nome}): ${resumo(p)}`, { tipo: "restaurarTurmas", turmas: foto });
   } else {
     await prisma.turma.create({ data: { ofertaId: oferta.id, ...dados } });
+    await registrar(eu, "Nova oferta", `${input.nome.trim()} (${grupo.nome}): ${resumo(p)}`);
   }
   atualizar();
   return { ok: true, conflitos, resumo: resumo(p) };
@@ -242,7 +249,7 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
 // ---------------------------------------------------------------- dashboard
 
 export async function salvarAlteracao(input: { turmaId: number; salaId: number | null; profId: number | null }) {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const turma = await prisma.turma.findUnique({ where: { id: input.turmaId }, include: { ambiente: true, professor: true } });
   if (!turma) return { ok: false, erro: "Turma não encontrada." };
   const sala = input.salaId ? await prisma.ambiente.findUnique({ where: { id: input.salaId } }) : null;
@@ -265,6 +272,7 @@ export async function salvarAlteracao(input: { turmaId: number; salaId: number |
   } else {
     await desfazer("TROCA_PROFESSOR");
   }
+  await registrar(eu, "Troca do dia", `${turma.nomeNaPlanilha ?? `Aula ${turma.id}`}: sala ${sala?.codigo ?? "da grade"}, professor ${prof?.nome ?? "da grade"} (só hoje)`);
   atualizar();
   return { ok: true };
 }
@@ -282,7 +290,7 @@ export async function enviarAviso(input: { turmaId: number; mensagem: string }) 
 
 /** Cadastra (sem id) ou edita (com id) uma sala/laboratório. */
 export async function criarSala(input: { id?: number; nome: string; tipo: string; cap: number | null; predio: string }) {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const codigo = input.nome.trim().toUpperCase();
   if (!codigo) return { ok: false, erro: "Informe a identificação." };
   const lab = input.tipo === "Laboratório/Prático";
@@ -300,25 +308,27 @@ export async function criarSala(input: { id?: number; nome: string; tipo: string
   } else {
     await prisma.ambiente.upsert({ where: { codigo }, update: dados, create: { codigo, ...dados } });
   }
+  await registrar(eu, input.id ? "Edição de cadastro" : "Novo cadastro", `Sala ${codigo}`);
   atualizar();
   return { ok: true };
 }
 
-/** Cadastra (sem id) ou edita (com id) um professor. */
-export async function criarProfessor(input: { id?: number; nome: string; email: string }) {
-  await exigirUsuario();
+/** Cadastra (sem id) ou edita (com id) um professor. `dias`: dias em que NÃO pode dar aula (formato do banco). */
+export async function criarProfessor(input: { id?: number; nome: string; email: string; dias?: string[] }) {
+  const eu = await exigirUsuario();
   const nome = input.nome.trim().toUpperCase();
   if (!nome) return { ok: false, erro: "Informe o nome." };
-  const email = input.email.trim() || null;
+  const dados = { email: input.email.trim() || null, diasIndisponiveis: input.dias?.length ? input.dias.join(",") : null };
   if (input.id) {
     try {
-      await prisma.professor.update({ where: { id: input.id }, data: { nome, email } });
+      await prisma.professor.update({ where: { id: input.id }, data: { nome, ...dados } });
     } catch {
       return { ok: false, erro: `Já existe outro professor chamado ${nome}.` };
     }
   } else {
-    await prisma.professor.upsert({ where: { nome }, update: { email }, create: { nome, email } });
+    await prisma.professor.upsert({ where: { nome }, update: dados, create: { nome, ...dados } });
   }
+  await registrar(eu, input.id ? "Edição de cadastro" : "Novo cadastro", `Professor ${nome}`);
   atualizar();
   return { ok: true };
 }
@@ -330,7 +340,7 @@ const PALAVRAS_CURSO: Array<[string, string]> = [
 
 /** "Nova Turma" / editar: o nome é livre (ex.: "04º B ENG. CIVIL"); o sistema descobre curso, período e turma. */
 export async function criarGrupo(input: { id?: number; nome: string; alunos: number | null; wa: string }) {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const nome = input.nome.trim();
   const n = norm(nome);
   if (!n) return { ok: false, erro: "Informe a turma." };
@@ -353,6 +363,7 @@ export async function criarGrupo(input: { id?: number; nome: string; alunos: num
   } catch {
     return { ok: false, erro: "Já existe uma turma com esse nome." };
   }
+  await registrar(eu, input.id ? "Edição de cadastro" : "Novo cadastro", `Turma ${data.nome}`);
   atualizar();
   return { ok: true };
 }
@@ -392,17 +403,46 @@ export async function previaExclusao(tipo: TipoCadastro, id: number): Promise<{ 
 }
 
 export async function excluirCadastro(tipo: TipoCadastro, id: number): Promise<{ ok: boolean; erro?: string }> {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const previa = await previaExclusao(tipo, id);
   if (!previa.pode) return { ok: false, erro: previa.mensagem };
-  if (tipo === "sala") await prisma.ambiente.delete({ where: { id } }); // aulas e disciplinas ficam sem sala (SET NULL)
-  if (tipo === "professor") await prisma.professor.delete({ where: { id } }); // aulas ficam "A definir"
+  // Antes de apagar, guarda o necessário para desfazer (tela Atividades)
+  if (tipo === "sala") {
+    const registro = (await prisma.ambiente.findUnique({ where: { id } }))!;
+    const [turmas, disciplinas] = await Promise.all([
+      prisma.turma.findMany({ where: { ambienteId: id }, select: { id: true } }),
+      prisma.disciplina.findMany({ where: { ambienteFixoId: id }, select: { id: true } }),
+    ]);
+    await prisma.ambiente.delete({ where: { id } }); // aulas e disciplinas ficam sem sala (SET NULL)
+    await registrar(eu, "Exclusão", `Sala ${registro.codigo}`, {
+      tipo: "recriarAmbiente", registro, turmas: turmas.map((t) => t.id), disciplinas: disciplinas.map((d) => d.id),
+    });
+  }
+  if (tipo === "professor") {
+    const registro = (await prisma.professor.findUnique({ where: { id } }))!;
+    const [turmas, habilitacoes] = await Promise.all([
+      prisma.turma.findMany({ where: { professorId: id }, select: { id: true } }),
+      prisma.professorDisciplina.findMany({ where: { professorId: id } }),
+    ]);
+    await prisma.professor.delete({ where: { id } }); // aulas ficam "A definir"
+    await registrar(eu, "Exclusão", `Professor ${registro.nome}`, {
+      tipo: "recriarProfessor", registro, turmas: turmas.map((t) => t.id), disciplinas: habilitacoes.map((h) => h.disciplinaId),
+    });
+  }
   if (tipo === "turma") {
+    const registro = (await prisma.grupoAlunos.findUnique({ where: { id } }))!;
+    const avisos = await prisma.aviso.findMany({ where: { grupoId: id } });
     await prisma.$transaction([prisma.aviso.deleteMany({ where: { grupoId: id } }), prisma.grupoAlunos.delete({ where: { id } })]);
+    await registrar(eu, "Exclusão", `Turma ${registro.nome}`, { tipo: "recriarGrupo", registro, avisos });
   }
   if (tipo === "aula") {
+    const turmas = await fotoTurmas(id);
+    const principal = await prisma.turma.findUnique({ where: { id }, include: { disciplina: true, grupo: true } });
     // quem assiste junto não tem aula própria: sai junto (as alterações caem em cascata)
     await prisma.$transaction([prisma.turma.deleteMany({ where: { consomeDeId: id } }), prisma.turma.delete({ where: { id } })]);
+    await registrar(eu, "Exclusão", `Aula ${principal?.nomeNaPlanilha ?? principal?.disciplina.nome} (${principal?.grupo?.nome ?? "—"})`, {
+      tipo: "recriarTurmas", turmas,
+    });
   }
   atualizar();
   return { ok: true };

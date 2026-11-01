@@ -1,0 +1,153 @@
+"use client";
+
+// Horário da Semana: quadro de segunda a sábado, com linhas por turma, professor ou sala. Pode ser impresso.
+
+import { useMemo, useState } from "react";
+import { OPCOES_DIA, ORDEM_DIA, porDiaHora } from "@/components/comum";
+import type { DadosSaga, TurmaVM } from "@/lib/tipos";
+
+export default function TelaSemana({ dados }: { dados: DadosSaga }) {
+  const [sDia, setSDia] = useState("TODOS");
+  const [sProf, setSProf] = useState("TODOS");
+  const [sTurma, setSTurma] = useState("TODOS");
+  const [sBusca, setSBusca] = useState("");
+  const [sAgrupar, setSAgrupar] = useState<"turma" | "prof" | "sala">("turma");
+
+  // Quadro da semana: sempre a grade normal (sala/professor sem a troca de hoje; a troca aparece como marca no cartão)
+  const semana = useMemo(() => {
+    const termo = sBusca.toLowerCase();
+    const aulas = dados.turmas
+      .filter((t) => sDia === "TODOS" || t.dia === sDia)
+      .filter((t) => sProf === "TODOS" || t.profGrade === sProf)
+      .filter((t) => sTurma === "TODOS" || t.turma === sTurma)
+      .filter((t) => !termo || `${t.dia} ${t.turma} ${t.nome} ${t.profGrade} ${t.salaGrade} ${t.formato}`.toLowerCase().includes(termo))
+      // por professor/sala, quem assiste junto repetiria o mesmo cartão
+      .filter((t) => sAgrupar === "turma" || !t.consome)
+      .filter((t) => sAgrupar !== "sala" || !["Sala comum", "EAD"].includes(t.salaGrade))
+      .sort(porDiaHora);
+    const chave = (t: TurmaVM) => (sAgrupar === "turma" ? t.turma : sAgrupar === "prof" ? t.profGrade : t.salaGrade);
+    const linhas = new Map<string, Map<string, TurmaVM[]>>();
+    for (const t of aulas) {
+      const k = chave(t);
+      if (!linhas.has(k)) linhas.set(k, new Map());
+      const col = t.dia || "EAD";
+      linhas.get(k)!.set(col, [...(linhas.get(k)!.get(col) ?? []), t]);
+    }
+    const colunas = [...ORDEM_DIA.filter((d) => sDia === "TODOS" || d === sDia), ...(aulas.some((t) => !t.dia) ? ["EAD"] : [])];
+    return { linhas: [...linhas.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR", { numeric: true })), colunas, total: aulas.length };
+  }, [dados, sDia, sProf, sTurma, sBusca, sAgrupar]);
+
+  return (
+    <section className="space-y-4">
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-[#1A2332] uppercase tracking-wider flex items-center gap-2">
+            <i className="fa-solid fa-filter text-[#F39200]"></i> Filtros do Quadro Geral
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600">Linhas por:</span>
+            {([["turma", "Turma"], ["prof", "Professor"], ["sala", "Sala / Lab"]] as const).map(([v, l]) => (
+              <button key={v} onClick={() => setSAgrupar(v)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${sAgrupar === v ? "bg-[#1A2332] text-white border-[#1A2332]" : "border-gray-200 text-gray-600 hover:border-[#F39200]"}`}>
+                {l}
+              </button>
+            ))}
+            <button onClick={() => window.print()} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:border-[#F39200]">
+              <i className="fa-solid fa-print mr-1"></i>Imprimir
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
+            <select value={sDia} onChange={(e) => setSDia(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+              <option value="TODOS">Todos os Dias</option>
+              {OPCOES_DIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
+            <select value={sProf} onChange={(e) => setSProf(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+              <option value="TODOS">Todos os Professores</option>
+              {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
+            <select value={sTurma} onChange={(e) => setSTurma(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+              <option value="TODOS">Todas as Turmas</option>
+              {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Busca Direta</label>
+            <input type="text" value={sBusca} onChange={(e) => setSBusca(e.target.value)} data-busca placeholder="Ex: LAB01, Irvine...  ( / )" className="w-full border border-gray-200 rounded-lg p-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto print:shadow-none print:border-0">
+        {semana.total === 0 ? (
+          <p className="p-8 text-center text-gray-400">Nada encontrado.</p>
+        ) : (
+          <table className="w-full border-collapse text-xs min-w-[900px]">
+            <thead>
+              <tr className="bg-[#1A2332] text-white uppercase tracking-wider">
+                <th className="p-3 text-left w-44 sticky left-0 bg-[#1A2332]">{sAgrupar === "turma" ? "Turma" : sAgrupar === "prof" ? "Professor" : "Sala / Lab"}</th>
+                {semana.colunas.map((c) => (
+                  <th key={c} className={`p-3 text-left ${c === dados.diaHoje ? "bg-[#F39200]" : ""}`}>
+                    {c === "EAD" ? "EAD / sem dia" : OPCOES_DIA.find(([v]) => v === c)?.[1]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {semana.linhas.map(([nome, porDia]) => (
+                <tr key={nome} className="align-top break-inside-avoid">
+                  <td className="p-3 font-bold text-[#1A2332] sticky left-0 bg-white border-r border-gray-100">{nome}</td>
+                  {semana.colunas.map((c) => (
+                    <td key={c} className={`p-2 space-y-1.5 ${c === dados.diaHoje ? "bg-orange-50/50" : ""}`}>
+                      {(porDia.get(c) ?? []).map((a) => {
+                        const erro = a.conflitos.some((x) => x.gravidade === "ERRO");
+                        const corFormato =
+                          a.formato === "Híbrida" ? "border-l-purple-500" : a.formato === "Síncrona" ? "border-l-teal-500"
+                          : a.formato === "Assíncrona" ? "border-l-gray-400" : "border-l-[#1A2332]";
+                        const trocaHoje = a.alteradaHoje && a.dia === dados.diaHoje;
+                        return (
+                          <div key={a.id} title={a.conflitos.map((x) => x.mensagem).join("\n") || undefined}
+                            className={`rounded-md border border-l-4 ${corFormato} ${erro ? "border-red-400 bg-red-50" : "border-gray-200 bg-gray-50"} p-2 leading-snug`}>
+                            <div className="font-semibold text-gray-900">{a.nome}</div>
+                            {a.horario !== "—" && <div className="text-gray-500">{a.horario}</div>}
+                            {sAgrupar !== "turma" && <div className="text-gray-600">{a.turma}</div>}
+                            {sAgrupar !== "prof" && <div className="text-gray-600">{a.profGrade}</div>}
+                            {sAgrupar !== "sala" && <div className="font-bold text-[#F39200]">{a.salaGrade}</div>}
+                            {a.formato !== "Presencial" && <div className="text-gray-400">{a.formato}</div>}
+                            {a.consome && <div className="text-blue-600">assiste com outro curso</div>}
+                            {trocaHoje && (
+                              <div className="mt-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded px-1">
+                                hoje: {a.sala !== a.salaGrade ? a.sala : ""}{a.sala !== a.salaGrade && a.prof !== a.profGrade ? " · " : ""}{a.prof !== a.profGrade ? a.prof : ""}
+                              </div>
+                            )}
+                            {erro && <div className="mt-1 text-[10px] font-bold text-red-700">conflito</div>}
+                          </div>
+                        );
+                      })}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-4 text-[11px] text-gray-500 print:hidden">
+        <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-[#1A2332] bg-gray-100 mr-1"></span>Presencial</span>
+        <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-purple-500 bg-gray-100 mr-1"></span>Híbrida</span>
+        <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-teal-500 bg-gray-100 mr-1"></span>Síncrona</span>
+        <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-gray-400 bg-gray-100 mr-1"></span>Assíncrona</span>
+        <span><span className="inline-block w-3 h-3 align-middle border border-red-400 bg-red-50 mr-1"></span>Com conflito</span>
+        <span className="text-[#F39200] font-semibold">Coluna laranja = hoje</span>
+      </div>
+    </section>
+  );
+}

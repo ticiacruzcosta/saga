@@ -6,6 +6,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { registrar } from "@/lib/atividade";
 import { COOKIE_OFERTA, ofertaAtual, paresRodizio } from "@/lib/dados";
 import { gerarOferta, nomeGrupo, proximoCodigo, type DisciplinaGer } from "@/lib/gerar-oferta";
 import type { ResultadoGeracao } from "@/lib/tipos";
@@ -19,20 +20,21 @@ export async function selecionarOferta(codigo: string) {
 
 /** Publica um semestre: ele passa a ser o padrão; o publicado anterior é arquivado. */
 export async function publicarOferta(codigo: string) {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const o = await prisma.oferta.findUnique({ where: { codigo } });
   if (!o) return { ok: false, erro: "Semestre não encontrado." };
   await prisma.$transaction([
     prisma.oferta.updateMany({ where: { status: "PUBLICADA", NOT: { id: o.id } }, data: { status: "ARQUIVADA" } }),
     prisma.oferta.update({ where: { id: o.id }, data: { status: "PUBLICADA" } }),
   ]);
+  await registrar(eu, "Publicação", `Semestre ${codigo} publicado`);
   revalidatePath("/");
   return { ok: true };
 }
 
 /** Monta o semestre seguinte ao que está aberto na tela e grava como RASCUNHO. */
 export async function gerarProximaOferta(input: { abrirPrimeiro: boolean; substituir: boolean }): Promise<ResultadoGeracao> {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const origem = await ofertaAtual();
   if (!origem) return { ok: false, erro: "Nenhuma oferta no banco para servir de base." };
   const codigo = proximoCodigo(origem.codigo);
@@ -78,6 +80,9 @@ export async function gerarProximaOferta(input: { abrirPrimeiro: boolean; substi
 
   const r = gerarOferta({
     grupos: [...grupos.values()], matriz: mapaMatriz, habilitacoes: habs,
+    indisponiveis: new Map(
+      habilitacoes.filter((h) => h.professor.diasIndisponiveis).map((h) => [h.professorId, h.professor.diasIndisponiveis!.split(",")])
+    ),
     ambientes: ambientes.map((a) => ({ id: a.id, codigo: a.codigo, tipo: a.tipo, capacidade: a.capacidade })),
     pares, compartilhadas: new Set(consumidas.map((c) => c.disciplinaId)), abrirPrimeiro: input.abrirPrimeiro,
   });
@@ -120,6 +125,7 @@ export async function gerarProximaOferta(input: { abrirPrimeiro: boolean; substi
   );
 
   (await cookies()).set(COOKIE_OFERTA, codigo, { path: "/", maxAge: 60 * 60 * 24 * 365 });
+  await registrar(eu, "Geração de semestre", `Rascunho ${codigo} gerado a partir de ${origem.codigo} (${r.turmas.length} aulas)`);
   revalidatePath("/");
   const comHorario = r.turmas.filter((t) => t.formato !== "ASSINCRONA" && t.consomeDe == null);
   return {

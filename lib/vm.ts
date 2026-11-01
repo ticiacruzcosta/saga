@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { carregarTurmas, ofertaAtual, ofertaPublicada, paraValidar, paresRodizio, type TurmaCompleta } from "./dados";
 import { validarOferta } from "./validacao-choque";
 import { dataHora, diaDeHoje, faixa, minutosParaHora } from "./rotulos";
+import { PRAZO_DESFAZER_MS } from "./atividade";
 import type { DadosSaga, TurmaVM } from "./tipos";
 
 /** O banco guarda o dia sem acento; a tela mostra com acento. */
@@ -32,7 +33,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     ofertaAtual(), ofertaPublicada(), prisma.oferta.findMany({ orderBy: { codigo: "desc" } }),
   ]);
 
-  const [ambientes, professores, grupos, avisos, disciplinas, usuarios] = await Promise.all([
+  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, atividades, semAula] = await Promise.all([
     prisma.ambiente.findMany({ where: { NOT: { codigo: { in: ["EAD", "SALA_COMUM"] } } }, orderBy: { codigo: "asc" } }),
     prisma.professor.findMany({ orderBy: { nome: "asc" } }),
     prisma.grupoAlunos.findMany({ orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
@@ -40,7 +41,10 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     prisma.disciplina.findMany({ select: { nome: true }, orderBy: { nome: "asc" } }),
     // pedidos de acesso pendentes primeiro
     admin ? prisma.usuario.findMany({ orderBy: [{ ativo: "asc" }, { nome: "asc" }] }) : [],
+    admin ? prisma.atividade.findMany({ orderBy: { criadaEm: "desc" }, take: 300 }) : [],
+    prisma.diaSemAula.findMany({ orderBy: { data: "asc" } }),
   ]);
+  const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
 
   const base: DadosSaga = {
     oferta: oferta?.codigo ?? "—",
@@ -54,13 +58,24 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
       id: a.id, nome: a.codigo, cap: a.capacidade, predio: a.predio ?? "—",
       tipo: ehLab(a.tipo) ? "Laboratório/Prático" : "Presencial Teórico",
     })),
-    professores: professores.map((p) => ({ id: p.id, nome: p.nome, email: p.email ?? "—" })),
+    professores: professores.map((p) => ({
+      id: p.id, nome: p.nome, email: p.email ?? "—", dias: p.diasIndisponiveis ? p.diasIndisponiveis.split(",") : [],
+    })),
     grupos: grupos.map((g) => ({ id: g.id, nome: g.nome, alunos: g.qtdAlunos, wa: g.linkWhatsapp ?? "—" })),
     avisos: avisos.map((a) => ({
       id: a.id, quando: dataHora(a.criadoEm), turma: a.grupo.nome, mensagem: a.conteudo,
       status: a.status === "ENTREGUE" ? "Entregue" : a.status === "ENVIADO" ? "Enviado" : a.status === "FALHOU" ? "Falhou" : "Pendente",
     })),
     disciplinas: [...new Set(disciplinas.map((d) => d.nome))],
+    atividades: atividades.map((a) => ({
+      id: a.id, quando: dataHora(a.criadaEm), usuario: a.usuarioNome, acao: a.acao, descricao: a.descricao,
+      desfeita: Boolean(a.desfeitaEm),
+      podeDesfazer: Boolean(a.desfazer) && !a.desfeitaEm && Date.now() - a.criadaEm.getTime() < PRAZO_DESFAZER_MS,
+    })),
+    calendario: {
+      inicio: iso(oferta?.inicioAulas), fim: iso(oferta?.fimAulas),
+      semAula: semAula.map((d) => ({ id: d.id, data: iso(d.data), descricao: d.descricao })),
+    },
     usuarios: usuarios.map((u) => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo, admin: u.perfil === "ADMIN", desde: dataHora(u.criadoEm).slice(0, 10) })),
     totalConflitos: 0,
     totalConfirmar: 0,

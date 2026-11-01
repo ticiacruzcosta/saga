@@ -202,6 +202,10 @@ model Oferta {
 
   criadaEm DateTime @default(now())
 
+  // Período letivo (calendário do dashboard). null = não informado
+  inicioAulas DateTime?
+  fimAulas    DateTime?
+
   turmas Turma[]
 
   @@map("ofertas")
@@ -325,6 +329,10 @@ model Usuario {
   perfil    String   @default("USUARIO")
   criadoEm  DateTime @default(now())
 
+  // Bloqueio depois de várias senhas erradas seguidas
+  tentativasFalhas Int       @default(0)
+  bloqueadoAte     DateTime?
+
   sessoes Sessao[]
 
   @@map("usuarios")
@@ -339,4 +347,33 @@ model Sessao {
 
   @@index([usuarioId])
   @@map("sessoes")
+}
+
+// =============================================================================
+// CALENDÁRIO E AUDITORIA
+// =============================================================================
+
+// Feriados e recessos: dias sem aula para todas as turmas.
+model DiaSemAula {
+  id        Int      @id @default(autoincrement())
+  data      DateTime @unique // meia-noite UTC do dia
+  descricao String
+
+  @@map("dias_sem_aula")
+}
+
+// Registro de quem fez o quê. Sem relação com Usuario para o histórico sobreviver à exclusão da conta.
+model Atividade {
+  id          Int       @id @default(autoincrement())
+  usuarioId   Int?
+  usuarioNome String
+  acao        String // ex.: "Exclusão", "Realocação", "Importação"
+  descricao   String
+  // JSON com o necessário para desfazer (null = não pode ser desfeita)
+  desfazer    String?
+  desfeitaEm  DateTime?
+  criadaEm    DateTime  @default(now())
+
+  @@index([criadaEm])
+  @@map("atividades")
 }

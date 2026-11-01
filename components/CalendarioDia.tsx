@@ -25,11 +25,12 @@ function corDoDia(passou: boolean, o: Ocupacao | null): { cls: string; texto: st
 }
 
 export default function CalendarioDia({
-  hoje, selecionada, ocupacao, onEscolher, onFechar,
+  hoje, selecionada, ocupacao, semAula, onEscolher, onFechar,
 }: {
   hoje: string;
   selecionada: string;
-  ocupacao: (data: string) => Ocupacao | null; // null = domingo (sem aula)
+  ocupacao: (data: string) => Ocupacao | null; // null = domingo ou dia sem aula
+  semAula: (data: string) => string | null; // feriado / fora do período letivo
   onEscolher: (data: string) => void;
   onFechar: () => void;
 }) {
@@ -68,15 +69,16 @@ export default function CalendarioDia({
           {semanasDoMes(mes.ano, mes.mes).flat().map((data, i) => {
             if (!data) return <span key={i} />;
             const dom = diaDaData(data) == null;
-            const cor = mostrarOcupacao ? corDoDia(data < hoje, dom ? null : ocupacao(data)) : null;
+            const motivo = semAula(data);
+            const cor = mostrarOcupacao && !motivo ? corDoDia(data < hoje, dom ? null : ocupacao(data)) : null;
             const escolhido = data === selecionada;
             return (
               <button
                 key={i}
                 onClick={() => onEscolher(data)}
-                title={cor?.texto ?? (dom ? "Domingo: sem aula" : undefined)}
+                title={motivo ? `Sem aula: ${motivo}` : cor?.texto ?? (dom ? "Domingo: sem aula" : undefined)}
                 className={`h-9 rounded-lg text-xs font-semibold transition
-                  ${cor ? cor.cls : dom ? "text-gray-300" : "text-gray-700 hover:bg-orange-50"}
+                  ${motivo ? "bg-gray-100 text-gray-400 line-through" : cor ? cor.cls : dom ? "text-gray-300" : "text-gray-700 hover:bg-orange-50"}
                   ${escolhido ? "ring-2 ring-[#1A2332] ring-offset-1" : ""}
                   ${data === hoje ? "underline decoration-2 underline-offset-2" : ""}`}
               >
@@ -94,6 +96,7 @@ export default function CalendarioDia({
             <span><i className="fa-solid fa-square text-orange-400"></i> Menos de 50% livres</span>
             <span><i className="fa-solid fa-square text-yellow-300"></i> 50% a 69% livres</span>
             <span><i className="fa-solid fa-square text-green-500"></i> 70% ou mais livres</span>
+            <span className="col-span-2"><i className="fa-solid fa-square text-gray-300"></i> <s>Riscado</s>: feriado ou fora do período letivo</span>
           </div>
         )}
         <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">

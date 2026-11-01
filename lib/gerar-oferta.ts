@@ -30,6 +30,7 @@ export type EntradaGeracao = {
   grupos: GrupoGer[]; // turmas de alunos que tinham aula na oferta de origem
   matriz: Map<number, Map<number, DisciplinaGer[]>>; // cursoId -> período -> disciplinas
   habilitacoes: Map<number, number[]>; // disciplinaId -> professores que já deram
+  indisponiveis?: Map<number, string[]>; // professorId -> dias em que não pode dar aula
   ambientes: AmbienteRealoc[];
   pares: Array<[number, number]>;
   compartilhadas: Set<number>; // disciplinas que já foram dadas em comunalidade
@@ -159,6 +160,7 @@ export function gerarOferta(e: EntradaGeracao) {
       for (const inicio of iniciosPara(t.grupo.turno, d.duracaoMinutos)) {
         for (const amb of salasPara(d, t.formato, e.ambientes)) {
           for (const prof of candidatos) {
+            if (prof != null && e.indisponiveis?.get(prof)?.includes(dia)) continue;
             const cand: TurmaParaValidar = {
               ...base(i, t.grupo), professorId: prof, ambienteId: amb?.id ?? null, ambienteCodigo: amb?.codigo,
               ambienteCapacidade: amb?.capacidade ?? null, diaSemana: dia, horaInicio: inicio, horaFim: inicio + d.duracaoMinutos,

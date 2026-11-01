@@ -32,9 +32,19 @@ export type TurmaVM = {
 };
 
 export type SalaVM = { id: number; nome: string; tipo: string; cap: number | null; predio: string };
-export type ProfVM = { id: number; nome: string; email: string };
+export type ProfVM = { id: number; nome: string; email: string; dias: string[] }; // dias: em que NÃO pode dar aula (formato do banco)
 export type GrupoVM = { id: number; nome: string; alunos: number | null; wa: string };
 export type UsuarioVM = { id: number; nome: string; email: string; ativo: boolean; admin: boolean; desde: string };
+export type AtividadeVM = {
+  id: number;
+  quando: string;
+  usuario: string;
+  acao: string;
+  descricao: string;
+  podeDesfazer: boolean;
+  desfeita: boolean;
+};
+export type CalendarioVM = { inicio: string; fim: string; semAula: Array<{ id: number; data: string; descricao: string }> };
 export type AvisoVM = { id: number; quando: string; turma: string; mensagem: string; status: string };
 
 export type DadosSaga = {
@@ -50,6 +60,8 @@ export type DadosSaga = {
   grupos: GrupoVM[];
   avisos: AvisoVM[];
   usuarios: UsuarioVM[];
+  atividades: AtividadeVM[]; // só para administradores
+  calendario: CalendarioVM;
   disciplinas: string[];
   totalConflitos: number;
   totalConfirmar: number;

@@ -8,6 +8,8 @@ import { exigirUsuario } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { registrar } from "@/lib/atividade";
+import type { UsuarioLogado } from "@/lib/auth";
 import { COOKIE_OFERTA } from "@/lib/dados";
 import { chaveDisciplina, lerPlanilhaOferta, semSufixoCurso, type LinhaPlanilha } from "@/lib/planilha-oferta";
 import { validarOferta, type DiaSemana, type Formato, type TurmaParaValidar } from "@/lib/validacao-choque";
@@ -82,7 +84,7 @@ async function resolverDisciplinas(linhas: LinhaPlanilha[]) {
   return { disc, dono, avulsaPorChave };
 }
 
-async function processar(form: FormData, gravar: boolean): Promise<PreviaImportacao> {
+async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): Promise<PreviaImportacao> {
   const entrada = lerFormulario(form);
   if (typeof entrada === "string") return { ok: false, erro: entrada };
 
@@ -265,6 +267,7 @@ async function processar(form: FormData, gravar: boolean): Promise<PreviaImporta
 
   // a tela passa a mostrar o semestre que acabou de ser importado
   (await cookies()).set(COOKIE_OFERTA, entrada.codigo, { path: "/", maxAge: 60 * 60 * 24 * 365 });
+  await registrar(eu ?? null, "Importação", `Oferta ${entrada.codigo}: ${linhas.length} aulas da planilha ${entrada.arquivo.name}${ofertaExistente ? " (substituiu a anterior)" : ""}`);
   revalidatePath("/");
   return { ...previa, gravado: true };
 }
@@ -277,6 +280,6 @@ export async function previsualizarImportacao(form: FormData): Promise<PreviaImp
 
 /** Etapa 2: grava a oferta (o arquivo é enviado de novo e conferido outra vez). */
 export async function confirmarImportacao(form: FormData): Promise<PreviaImportacao> {
-  await exigirUsuario();
-  return processar(form, true);
+  const eu = await exigirUsuario();
+  return processar(form, true, eu);
 }

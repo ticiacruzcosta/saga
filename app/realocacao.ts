@@ -6,6 +6,8 @@ import { exigirUsuario } from "@/lib/auth";
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { fotoTurmas, registrar } from "@/lib/atividade";
+import type { UsuarioLogado } from "@/lib/auth";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio, type TurmaCompleta } from "@/lib/dados";
 import {
   aplicarNoContexto, conferirOpcao, conflitosDe, motivoNaoRealocar, opcoesRealocacao, planejarTudo,
@@ -79,13 +81,14 @@ export async function sugerirRealocacao(turmaId: number): Promise<SugestaoRealoc
 type Pedido = { turmaId: number; dia: string; inicio: number; fim: number; ambienteId: number | null; avisar: boolean };
 
 /** Grava uma realocação (a turma e quem assiste junto) + registro + aviso opcional. */
-async function gravar(base: NonNullable<Awaited<ReturnType<typeof carregarContexto>>>, p: Pedido) {
+async function gravar(eu: UsuarioLogado, base: NonNullable<Awaited<ReturnType<typeof carregarContexto>>>, p: Pedido) {
   const t = base.turmas.find((x) => x.id === p.turmaId)!;
   const amb = p.ambienteId ? base.ctx.ambientes.find((a) => a.id === p.ambienteId) : null;
   const antes = onde(t.diaSemana, t.horaInicio, t.horaFim, t.ambiente?.codigo);
   const depois = onde(p.dia, p.inicio, p.fim, amb?.codigo);
   const dados = { diaSemana: p.dia, horaInicio: p.inicio, horaFim: p.fim, ambienteId: p.ambienteId };
   const disciplina = t.nomeNaPlanilha ?? t.disciplina.nome;
+  const foto = await fotoTurmas(t.id);
 
   await prisma.$transaction(async (tx) => {
     await tx.turma.update({ where: { id: t.id }, data: dados });
@@ -105,17 +108,18 @@ async function gravar(base: NonNullable<Awaited<ReturnType<typeof carregarContex
       }
     }
   });
+  await registrar(eu, "Realocação", `${disciplina} (${t.grupo?.nome ?? "—"}): ${antes} → ${depois}`, { tipo: "restaurarTurmas", turmas: foto });
   aplicarNoContexto(base.ctx, t.id, { ...p, dia: p.dia as OpcaoRealocacao["dia"], ambienteCodigo: amb?.codigo ?? null, muda: "", avisos: [], custo: 0 });
   return depois;
 }
 
 export async function aplicarRealocacao(p: Pedido): Promise<{ ok: boolean; erro?: string; resumo?: string }> {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, erro: "Nenhuma oferta no banco." };
   const c = conferirOpcao(base.ctx, p.turmaId, p);
   if (!c.ok) return { ok: false, erro: `Essa opção não está mais livre: ${c.mensagem}` };
-  const resumo = await gravar(base, p);
+  const resumo = await gravar(eu, base, p);
   revalidatePath("/");
   return { ok: true, resumo };
 }
@@ -139,7 +143,7 @@ export async function planejarResolucao(): Promise<PlanoResolucaoVM> {
 
 /** Grava as sugestões marcadas, na ordem, conferindo cada uma antes. */
 export async function aplicarResolucao(itens: Pedido[]): Promise<{ ok: boolean; aplicadas: number; falhas: string[] }> {
-  await exigirUsuario();
+  const eu = await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, aplicadas: 0, falhas: ["Nenhuma oferta no banco."] };
   let aplicadas = 0;
@@ -151,7 +155,7 @@ export async function aplicarResolucao(itens: Pedido[]): Promise<{ ok: boolean; 
       falhas.push(`${t ? rotulo(t) : p.turmaId}: ${c.mensagem}`);
       continue;
     }
-    await gravar(base, p);
+    await gravar(eu, base, p);
     aplicadas++;
   }
   revalidatePath("/");

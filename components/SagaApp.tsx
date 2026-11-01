@@ -9,23 +9,26 @@ import {
   cadastrarOferta, conferirOferta, criarGrupo, criarProfessor, criarSala, enviarAviso, excluirCadastro,
   previaExclusao, salvarAlteracao, type TipoCadastro,
 } from "@/app/actions";
-import { confirmarImportacao, previsualizarImportacao } from "@/app/importacao";
 import { aplicarRealocacao, aplicarResolucao, planejarResolucao, sugerirRealocacao } from "@/app/realocacao";
 import { gerarProximaOferta, publicarOferta, selecionarOferta } from "@/app/ofertas";
-import { definirAcesso, definirAdmin, excluirUsuario, sair } from "@/app/auth";
+import { sair } from "@/app/auth";
 import type { UsuarioLogado } from "@/lib/auth";
 import { proximoCodigo } from "@/lib/gerar-oferta";
 import { diaDaData, diaMes, somarDias } from "@/lib/datas";
 import CalendarioDia, { type Ocupacao } from "./CalendarioDia";
+import { OPCOES_DIA, porDiaHora, semTraco } from "./comum";
+import TelaBot from "./telas/TelaBot";
+import TelaHistorico from "./telas/TelaHistorico";
+import TelaImportar from "./telas/TelaImportar";
+import TelaSemana from "./telas/TelaSemana";
+import TelaUsuarios from "./telas/TelaUsuarios";
+import TelaAtividades from "./telas/TelaAtividades";
+import TelaCalendario from "./telas/TelaCalendario";
+import TelaIndicadores from "./telas/TelaIndicadores";
+import ModalSenha from "./ModalSenha";
 import type {
-  DadosSaga, OfertaInput, PlanoResolucaoVM, PreviaImportacao, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
+  DadosSaga, OfertaInput, PlanoResolucaoVM, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
 } from "@/lib/tipos";
-
-const ORDEM_DIA = ["SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"];
-const ordemDia = (d: string) => (ORDEM_DIA.includes(d) ? ORDEM_DIA.indexOf(d) : 99);
-const porDiaHora = (a: TurmaVM, b: TurmaVM) =>
-  ordemDia(a.dia) - ordemDia(b.dia) || a.horario.localeCompare(b.horario) || a.id - b.id;
-const semTraco = (v: string) => (v === "—" ? "" : v);
 
 const TITULOS: Record<string, string> = {
   dashboard: "HORÁRIO DO DIA",
@@ -39,12 +42,10 @@ const TITULOS: Record<string, string> = {
   disciplinas: "CADASTRO DE OFERTAS",
   whatsapp: "BOT WHATSAPP",
   usuarios: "USUÁRIOS DO SISTEMA",
+  indicadores: "INDICADORES DO SEMESTRE",
+  calendario: "CALENDÁRIO LETIVO",
+  atividades: "ATIVIDADES E BACKUP",
 };
-
-const OPCOES_DIA = [
-  ["SEGUNDA", "Segunda-Feira"], ["TERÇA", "Terça-Feira"], ["QUARTA", "Quarta-Feira"],
-  ["QUINTA", "Quinta-Feira"], ["SEXTA", "Sexta-Feira"], ["SÁBADO", "Sábado"],
-];
 
 const FORM_VAZIO = {
   grupoId: "", nome: "", formato: "Presencial", cht: "", chp: "", profId: "", dia: "SEGUNDA",
@@ -67,6 +68,28 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const router = useRouter();
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [tema, setTema] = useState<"claro" | "escuro">("claro");
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
+  // formulário de janela com alteração ainda não salva
+  const [sujo, setSujo] = useState(false);
+
+  // Tela pequena começa com o menu recolhido; o tema escolhido fica guardado neste navegador
+  useEffect(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
+    try {
+      if (localStorage.getItem("saga_tema") === "escuro") setTema("escuro");
+    } catch {
+      // sem armazenamento: fica no tema claro
+    }
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.tema = tema;
+    try {
+      localStorage.setItem("saga_tema", tema);
+    } catch {
+      // sem armazenamento: só não lembra a escolha
+    }
+  }, [tema]);
 
   // filtros
   const [dashBusca, setDashBusca] = useState("");
@@ -74,11 +97,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const [gDia, setGDia] = useState("TODOS");
   const [gProf, setGProf] = useState("TODOS");
   const [gEspaco, setGEspaco] = useState("TODOS");
-  const [sDia, setSDia] = useState("TODOS");
-  const [sProf, setSProf] = useState("TODOS");
-  const [sTurma, setSTurma] = useState("TODOS");
-  const [sBusca, setSBusca] = useState("");
-  const [sAgrupar, setSAgrupar] = useState<"turma" | "prof" | "sala">("turma");
 
   // janelas
   const [modal, setModal] = useState<"" | "sala" | "professor" | "turma" | "disciplina" | "edit" | "whatsapp" | "realocar" | "resolver" | "gerar">("");
@@ -88,7 +106,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const [waTurma, setWaTurma] = useState<TurmaVM | null>(null);
 
   const [sala, setSala] = useState({ nome: "", tipo: "Laboratório/Prático", cap: "", predio: "" });
-  const [prof, setProf] = useState({ nome: "", email: "" });
+  const [prof, setProf] = useState<{ nome: string; email: string; dias: string[] }>({ nome: "", email: "", dias: [] });
   const [turma, setTurma] = useState({ nome: "", alunos: "", wa: "" });
   // cadastro sendo editado (null = cadastro novo); vale para sala, professor e turma
   const [editId, setEditId] = useState<number | null>(null);
@@ -97,14 +115,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const [conf, setConf] = useState<ResultadoOferta | null>(null);
   const [pendente, iniciar] = useTransition();
   const contador = useRef(0);
-
-  // importação de planilha
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [impCodigo, setImpCodigo] = useState(dados.oferta === "—" ? "" : dados.oferta);
-  const [impSubstituir, setImpSubstituir] = useState(false);
-  const [impPublicar, setImpPublicar] = useState(true);
-  const [previa, setPrevia] = useState<PreviaImportacao | null>(null);
-  const inputArquivo = useRef<HTMLInputElement>(null);
 
   // realocação de aula com conflito
   const [sugestao, setSugestao] = useState<SugestaoRealocacaoVM | null>(null);
@@ -118,7 +128,31 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const [gerSubstituir, setGerSubstituir] = useState(false);
   const [geracao, setGeracao] = useState<ResultadoGeracao | null>(null);
 
-  const fechar = () => setModal("");
+  const fechar = () => {
+    if (sujo && !confirm("Há alterações não salvas nesta janela. Descartar?")) return;
+    setModal("");
+  };
+  useEffect(() => setSujo(false), [modal]);
+  useEffect(() => {
+    if (!sujo) return;
+    const aviso = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", aviso);
+    return () => window.removeEventListener("beforeunload", aviso);
+  }, [sujo]);
+
+  // Atalho "/": vai para a busca da tela aberta
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      const alvo = e.target as HTMLElement;
+      if (e.key !== "/" || ["INPUT", "TEXTAREA", "SELECT"].includes(alvo.tagName) || alvo.isContentEditable) return;
+      const busca = document.querySelector<HTMLInputElement>("[data-busca]");
+      if (!busca) return;
+      e.preventDefault();
+      busca.focus();
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, []);
   // Dashboard: data exibida. null = acompanha hoje (e vira sozinha à meia-noite)
   const [dataEscolhida, setDataEscolhida] = useState<string | null>(null);
   const [calendarioAberto, setCalendarioAberto] = useState(false);
@@ -137,6 +171,15 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     irPara(d);
   }
 
+  // Feriado/recesso cadastrado ou data fora do período letivo: não há aula
+  const semAula = useMemo(() => {
+    const feriados = new Map(dados.calendario.semAula.map((d) => [d.data, d.descricao]));
+    const { inicio, fim } = dados.calendario;
+    return (data: string): string | null =>
+      feriados.get(data) ?? ((inicio && data < inicio) || (fim && data > fim) ? "Fora do período letivo" : null);
+  }, [dados]);
+  const motivoSemAula = semAula(dataVer);
+
   // Salas livres por dia (para as cores do calendário): só as salas que o sistema controla
   const ocupacao = useMemo(() => {
     const controladas = new Set(dados.salas.map((s) => s.nome));
@@ -149,10 +192,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       ).size;
     return (data: string): Ocupacao | null => {
       const dia = diaDaData(data);
-      if (!dia) return null;
+      if (!dia || semAula(data)) return null;
       return { livres: controladas.size - usadas(dia, data === dados.dataHoje), total: controladas.size };
     };
-  }, [dados]);
+  }, [dados, semAula]);
 
   // Virou o dia (meia-noite em Porto Velho)? Busca os dados de novo, sem precisar de F5.
   useEffect(() => {
@@ -176,12 +219,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const dashboard = useMemo(() => {
     const termo = dashBusca.trim().toLowerCase();
     return dados.turmas
-      .filter((t) => diaVer && t.dia === diaVer && !t.consome)
+      .filter((t) => diaVer && !motivoSemAula && t.dia === diaVer && !t.consome)
       // Troca pontual (lápis) só vale hoje: nos outros dias mostra a grade normal
       .map((t) => (ehHoje ? t : { ...t, sala: t.salaGrade, prof: t.profGrade, alteradaHoje: false }))
       .filter((t) => !termo || `${t.turma} ${t.nome} ${t.prof} ${t.sala}`.toLowerCase().includes(termo))
       .sort(porDiaHora);
-  }, [dados, dashBusca, diaVer, ehHoje]);
+  }, [dados, dashBusca, diaVer, ehHoje, motivoSemAula]);
 
   const grade = useMemo(
     () =>
@@ -193,30 +236,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
         .sort(porDiaHora),
     [dados, gTurma, gDia, gProf, gEspaco]
   );
-
-  // Quadro da semana: sempre a grade normal (sala/professor sem a troca de hoje; a troca aparece como marca no cartão)
-  const semana = useMemo(() => {
-    const termo = sBusca.toLowerCase();
-    const aulas = dados.turmas
-      .filter((t) => sDia === "TODOS" || t.dia === sDia)
-      .filter((t) => sProf === "TODOS" || t.profGrade === sProf)
-      .filter((t) => sTurma === "TODOS" || t.turma === sTurma)
-      .filter((t) => !termo || `${t.dia} ${t.turma} ${t.nome} ${t.profGrade} ${t.salaGrade} ${t.formato}`.toLowerCase().includes(termo))
-      // por professor/sala, quem assiste junto repetiria o mesmo cartão
-      .filter((t) => sAgrupar === "turma" || !t.consome)
-      .filter((t) => sAgrupar !== "sala" || !["Sala comum", "EAD"].includes(t.salaGrade))
-      .sort(porDiaHora);
-    const chave = (t: TurmaVM) => (sAgrupar === "turma" ? t.turma : sAgrupar === "prof" ? t.profGrade : t.salaGrade);
-    const linhas = new Map<string, Map<string, TurmaVM[]>>();
-    for (const t of aulas) {
-      const k = chave(t);
-      if (!linhas.has(k)) linhas.set(k, new Map());
-      const col = t.dia || "EAD";
-      linhas.get(k)!.set(col, [...(linhas.get(k)!.get(col) ?? []), t]);
-    }
-    const colunas = [...ORDEM_DIA.filter((d) => sDia === "TODOS" || d === sDia), ...(aulas.some((t) => !t.dia) ? ["EAD"] : [])];
-    return { linhas: [...linhas.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR", { numeric: true })), colunas, total: aulas.length };
-  }, [dados, sDia, sProf, sTurma, sBusca, sAgrupar]);
 
   // ---------------------------------------------------------------- nova oferta
   const entrada: OfertaInput = useMemo(
@@ -269,33 +288,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const temErro = Boolean(conf?.conflitos.some((c) => c.gravidade === "ERRO"));
   const f = (campo: keyof typeof FORM_VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((x) => ({ ...x, [campo]: e.target.value }));
-
-  // ---------------------------------------------------------------- importar planilha
-  function formImportacao() {
-    const fd = new FormData();
-    if (arquivo) fd.set("arquivo", arquivo);
-    fd.set("codigo", impCodigo);
-    if (impSubstituir) fd.set("substituir", "on");
-    if (impPublicar) fd.set("publicar", "on");
-    return fd;
-  }
-  function escolherArquivo(f: File | null | undefined) {
-    setArquivo(f ?? null);
-    setPrevia(null);
-  }
-  function previsualizar() {
-    iniciar(async () => setPrevia(await previsualizarImportacao(formImportacao())));
-  }
-  function importar() {
-    iniciar(async () => {
-      const r = await confirmarImportacao(formImportacao());
-      setPrevia(r);
-      if (r.gravado) {
-        alert(`Oferta ${r.codigo} importada: ${r.turmas} turmas.`);
-        router.refresh();
-      } else if (r.erro) alert(r.erro);
-    });
-  }
 
   // ---------------------------------------------------------------- realocar
   function abrirRealocar(turmaId: number) {
@@ -375,7 +367,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     }
     if (tipo === "professor") {
       const x = dados.professores.find((v) => v.id === id);
-      setProf(x ? { nome: x.nome, email: semTraco(x.email) } : { nome: "", email: "" });
+      setProf(x ? { nome: x.nome, email: semTraco(x.email), dias: x.dias } : { nome: "", email: "", dias: [] });
     }
     if (tipo === "turma") {
       const x = dados.grupos.find((v) => v.id === id);
@@ -398,7 +390,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     iniciar(async () => {
       const r = await criarProfessor({ id: editId ?? undefined, ...prof });
       if (!r.ok) return alert(r.erro);
-      setProf({ nome: "", email: "" });
+      setProf({ nome: "", email: "", dias: [] });
       setModal("");
       router.refresh();
     });
@@ -477,31 +469,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const avisosPendentes = dados.avisos.filter((a) => a.status === "Pendente").length;
   const contasPendentes = dados.usuarios.filter((u) => !u.ativo).length;
 
-  function mudarAcesso(id: number, ativo: boolean, nome: string) {
-    if (!ativo && !confirm(`Desativar o acesso de ${nome}? A pessoa sai do sistema na hora.`)) return;
-    iniciar(async () => {
-      const r = await definirAcesso(id, ativo);
-      if (!r.ok) return alert(r.erro);
-      router.refresh();
-    });
-  }
-  function mudarPerfil(id: number, admin: boolean, nome: string) {
-    if (!confirm(admin ? `Tornar ${nome} administrador? Ele poderá aprovar, desativar e excluir contas.` : `Tirar ${nome} da administração?`)) return;
-    iniciar(async () => {
-      const r = await definirAdmin(id, admin);
-      if (!r.ok) return alert(r.erro);
-      router.refresh();
-    });
-  }
-  function removerUsuario(id: number, nome: string) {
-    if (!confirm(`Excluir a conta de ${nome}? Não dá para desfazer.`)) return;
-    iniciar(async () => {
-      const r = await excluirUsuario(id);
-      if (!r.ok) return alert(r.erro);
-      router.refresh();
-    });
-  }
-
   // ---------------------------------------------------------------- peças repetidas
   const navBtn = (id: string, icone: string, nome: string, iconeCls = "text-gray-400", nomeCls = "", alerta = 0) => (
     <li>
@@ -534,7 +501,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
   return (
     <div
-      className="bg-[#F4F6F9] text-gray-800 flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible print:bg-white"
+      className="saga-app bg-[#F4F6F9] text-gray-800 flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible print:bg-white"
+      onChangeCapture={() => modal && setSujo(true)}
       style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"' }}
     >
       <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#9ca3af} @page{size:landscape;margin:10mm}`}</style>
@@ -561,6 +529,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               <ul className="space-y-1">
                 {navBtn("dashboard", "fa-solid fa-gauge", "Dashboard (Hoje)")}
                 {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre", "text-[#F39200]", "font-bold text-white")}
+                {navBtn("indicadores", "fa-solid fa-chart-column", "Indicadores")}
                 {navBtn("horario-semana", "fa-solid fa-calendar-week", "Horário da Semana")}
                 {navBtn("importar", "fa-solid fa-file-import", "Importar Planilha")}
                 {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos", undefined, "", avisosPendentes)}
@@ -573,12 +542,14 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 {navBtn("professores", "fa-solid fa-chalkboard-user", "Professores")}
                 {navBtn("salas", "fa-solid fa-door-open", "Salas & Laboratórios")}
                 {navBtn("disciplinas", "fa-solid fa-book", "Ofertas & Disciplinas")}
+                {navBtn("calendario", "fa-solid fa-calendar-xmark", "Calendário Letivo")}
               </ul>
             </div>
             <div>
               <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3`}>Sistema</p>
               <ul className="space-y-1">
                 {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", undefined, "", contasPendentes)}
+                {usuario.admin && navBtn("atividades", "fa-solid fa-list-check", "Atividades e Backup")}
                 {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot", "text-gray-400")}
               </ul>
             </div>
@@ -593,6 +564,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <p className="text-xs font-medium text-white truncate">{usuario.nome}</p>
             <p className="text-[10px] text-gray-400 truncate">{usuario.email}</p>
           </div>
+          <button onClick={() => setTrocandoSenha(true)} title="Trocar senha" className={`${sidebarOpen ? "" : "hidden"} text-gray-400 hover:text-white p-1.5 shrink-0`}>
+            <i className="fa-solid fa-key"></i>
+          </button>
           <button onClick={() => sair()} title="Sair" className={`${sidebarOpen ? "" : "hidden"} text-gray-400 hover:text-white p-1.5 shrink-0`}>
             <i className="fa-solid fa-right-from-bracket"></i>
           </button>
@@ -600,16 +574,23 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto print:overflow-visible">
-        <header className="print:hidden bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <header className="print:hidden bg-white border-b border-gray-200 px-4 md:px-8 py-4 flex justify-between items-center gap-3 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen((v) => !v)} className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition mr-1" title="Alternar Menu">
               <i className="fa-solid fa-bars"></i>
             </button>
-            <h2 className="text-xl font-bold text-[#1A2332]">{titulo}</h2>
+            <h2 className="text-base md:text-xl font-bold text-[#1A2332]">{titulo}</h2>
           </div>
+          <button
+            onClick={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
+            title={tema === "claro" ? "Tema escuro" : "Tema claro"}
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition shrink-0"
+          >
+            <i className={`fa-solid ${tema === "claro" ? "fa-moon" : "fa-sun"}`}></i>
+          </button>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {dados.oferta !== "—" && dados.oferta !== dados.ofertaPublicada && (
             <div className="print:hidden mb-6 bg-yellow-50 border border-yellow-300 text-yellow-900 rounded-xl p-4 text-sm flex flex-wrap items-center gap-3 justify-between">
               <span>
@@ -629,8 +610,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 <div className="relative flex-1 max-w-md">
                   <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
                   <input
-                    type="text" value={dashBusca} onChange={(e) => setDashBusca(e.target.value)}
-                    placeholder="Filtrar por turma, professor ou sala..."
+                    type="text" value={dashBusca} onChange={(e) => setDashBusca(e.target.value)} data-busca
+                    placeholder="Filtrar por turma, professor ou sala...  ( / )"
                     className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F39200]"
                   />
                 </div>
@@ -654,7 +635,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       </div>
                     </button>
                     {calendarioAberto && (
-                      <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
+                      <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} semAula={semAula} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
                     )}
                   </div>
                   <button onClick={() => andarDia(1)} title="Próximo dia" className="w-8 h-8 rounded-lg border border-gray-200 text-gray-600 hover:text-[#F39200] hover:border-[#F39200]">
@@ -666,8 +647,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[760px]">
                   <thead>
                     <tr className="bg-[#1A2332] text-white text-xs uppercase tracking-wider">
                       <th className="p-4">Turma / Disciplina / Professor</th>
@@ -680,7 +661,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   </thead>
                   <tbody className="divide-y divide-gray-200 text-sm">
                     {dashboard.length === 0 && (
-                      <tr><td colSpan={6} className="p-8 text-center text-gray-400">Nenhuma aula neste dia.</td></tr>
+                      <tr><td colSpan={6} className="p-8 text-center text-gray-400">
+                        {motivoSemAula ? <><i className="fa-solid fa-umbrella-beach mr-2"></i>Sem aula: {motivoSemAula}</> : "Nenhuma aula neste dia."}
+                      </td></tr>
                     )}
                     {dashboard.map((d) => (
                       <tr key={d.id} className="hover:bg-gray-50 transition">
@@ -716,7 +699,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {/* 2. GRADE DO SEMESTRE */}
           {tab === "gerador" && (
             <section className="space-y-5">
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4">
+              <h2 className="hidden print:block text-lg font-bold">Oferta {dados.oferta} · UNISAPIENS</h2>
+              <div className="print:hidden bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4">
                 <div className="flex flex-wrap justify-between items-center gap-4 border-b border-gray-200 pb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-lg font-bold text-[#1A2332]">Matriz de Oferta Acadêmica</h3>
@@ -749,6 +733,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                         <i className="fa-solid fa-wand-magic-sparkles"></i> Resolver Conflitos
                       </button>
                     )}
+                    <a href="/api/exportar" title="Planilha no formato da oferta (pode ser importada de volta)" className="border border-gray-200 text-gray-700 hover:border-[#F39200] px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                      <i className="fa-solid fa-file-excel text-green-600"></i> Excel
+                    </a>
+                    <button onClick={() => window.print()} title="Imprimir ou salvar como PDF" className="border border-gray-200 text-gray-700 hover:border-[#F39200] px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                      <i className="fa-solid fa-file-pdf text-red-600"></i> PDF
+                    </button>
                     <button onClick={() => router.refresh()} title="Busca os dados de novo e reconfere os choques" className="bg-[#1A2332] hover:bg-[#111722] text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
                       <i className="fa-solid fa-arrows-rotate"></i> Atualizar
                     </button>
@@ -788,8 +778,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-left border-collapse text-sm">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm min-w-[760px]">
                   <thead>
                     <tr className="bg-[#1A2332] text-white text-xs uppercase tracking-wider">
                       <th className="p-3.5">Dia</th>
@@ -843,260 +833,13 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           )}
 
           {/* 3. HORÁRIO DA SEMANA */}
-          {tab === "horario-semana" && (
-            <section className="space-y-4">
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4 print:hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-sm font-bold text-[#1A2332] uppercase tracking-wider flex items-center gap-2">
-                    <i className="fa-solid fa-filter text-[#F39200]"></i> Filtros do Quadro Geral
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-600">Linhas por:</span>
-                    {([["turma", "Turma"], ["prof", "Professor"], ["sala", "Sala / Lab"]] as const).map(([v, l]) => (
-                      <button key={v} onClick={() => setSAgrupar(v)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${sAgrupar === v ? "bg-[#1A2332] text-white border-[#1A2332]" : "border-gray-200 text-gray-600 hover:border-[#F39200]"}`}>
-                        {l}
-                      </button>
-                    ))}
-                    <button onClick={() => window.print()} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:border-[#F39200]">
-                      <i className="fa-solid fa-print mr-1"></i>Imprimir
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
-                    <select value={sDia} onChange={(e) => setSDia(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
-                      <option value="TODOS">Todos os Dias</option>
-                      {OPCOES_DIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
-                    <select value={sProf} onChange={(e) => setSProf(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
-                      <option value="TODOS">Todos os Professores</option>
-                      {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
-                    <select value={sTurma} onChange={(e) => setSTurma(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
-                      <option value="TODOS">Todas as Turmas</option>
-                      {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Busca Direta</label>
-                    <input type="text" value={sBusca} onChange={(e) => setSBusca(e.target.value)} placeholder="Ex: LAB01, Irvine..." className="w-full border border-gray-200 rounded-lg p-2 text-sm" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto print:shadow-none print:border-0">
-                {semana.total === 0 ? (
-                  <p className="p-8 text-center text-gray-400">Nada encontrado.</p>
-                ) : (
-                  <table className="w-full border-collapse text-xs min-w-[900px]">
-                    <thead>
-                      <tr className="bg-[#1A2332] text-white uppercase tracking-wider">
-                        <th className="p-3 text-left w-44 sticky left-0 bg-[#1A2332]">{sAgrupar === "turma" ? "Turma" : sAgrupar === "prof" ? "Professor" : "Sala / Lab"}</th>
-                        {semana.colunas.map((c) => (
-                          <th key={c} className={`p-3 text-left ${c === dados.diaHoje ? "bg-[#F39200]" : ""}`}>
-                            {c === "EAD" ? "EAD / sem dia" : OPCOES_DIA.find(([v]) => v === c)?.[1]}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {semana.linhas.map(([nome, porDia]) => (
-                        <tr key={nome} className="align-top break-inside-avoid">
-                          <td className="p-3 font-bold text-[#1A2332] sticky left-0 bg-white border-r border-gray-100">{nome}</td>
-                          {semana.colunas.map((c) => (
-                            <td key={c} className={`p-2 space-y-1.5 ${c === dados.diaHoje ? "bg-orange-50/50" : ""}`}>
-                              {(porDia.get(c) ?? []).map((a) => {
-                                const erro = a.conflitos.some((x) => x.gravidade === "ERRO");
-                                const corFormato =
-                                  a.formato === "Híbrida" ? "border-l-purple-500" : a.formato === "Síncrona" ? "border-l-teal-500"
-                                  : a.formato === "Assíncrona" ? "border-l-gray-400" : "border-l-[#1A2332]";
-                                const trocaHoje = a.alteradaHoje && a.dia === dados.diaHoje;
-                                return (
-                                  <div key={a.id} title={a.conflitos.map((x) => x.mensagem).join("\n") || undefined}
-                                    className={`rounded-md border border-l-4 ${corFormato} ${erro ? "border-red-400 bg-red-50" : "border-gray-200 bg-gray-50"} p-2 leading-snug`}>
-                                    <div className="font-semibold text-gray-900">{a.nome}</div>
-                                    {a.horario !== "—" && <div className="text-gray-500">{a.horario}</div>}
-                                    {sAgrupar !== "turma" && <div className="text-gray-600">{a.turma}</div>}
-                                    {sAgrupar !== "prof" && <div className="text-gray-600">{a.profGrade}</div>}
-                                    {sAgrupar !== "sala" && <div className="font-bold text-[#F39200]">{a.salaGrade}</div>}
-                                    {a.formato !== "Presencial" && <div className="text-gray-400">{a.formato}</div>}
-                                    {a.consome && <div className="text-blue-600">assiste com outro curso</div>}
-                                    {trocaHoje && (
-                                      <div className="mt-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded px-1">
-                                        hoje: {a.sala !== a.salaGrade ? a.sala : ""}{a.sala !== a.salaGrade && a.prof !== a.profGrade ? " · " : ""}{a.prof !== a.profGrade ? a.prof : ""}
-                                      </div>
-                                    )}
-                                    {erro && <div className="mt-1 text-[10px] font-bold text-red-700">conflito</div>}
-                                  </div>
-                                );
-                              })}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-4 text-[11px] text-gray-500 print:hidden">
-                <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-[#1A2332] bg-gray-100 mr-1"></span>Presencial</span>
-                <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-purple-500 bg-gray-100 mr-1"></span>Híbrida</span>
-                <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-teal-500 bg-gray-100 mr-1"></span>Síncrona</span>
-                <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-gray-400 bg-gray-100 mr-1"></span>Assíncrona</span>
-                <span><span className="inline-block w-3 h-3 align-middle border border-red-400 bg-red-50 mr-1"></span>Com conflito</span>
-                <span className="text-[#F39200] font-semibold">Coluna laranja = hoje</span>
-              </div>
-            </section>
-          )}
+          {tab === "horario-semana" && <TelaSemana dados={dados} />}
 
           {/* 4. IMPORTAR PLANILHA */}
-          {tab === "importar" && (
-            <section className="space-y-6">
-              <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-2xl mx-auto text-center space-y-4">
-                <div className="w-16 h-16 bg-orange-100 text-[#F39200] rounded-full flex items-center justify-center mx-auto text-2xl">
-                  <i className="fa-solid fa-cloud-arrow-up"></i>
-                </div>
-                <h3 className="text-lg font-bold text-[#1A2332]">Importar Planilha de Oferta (.XLSX)</h3>
-                <input ref={inputArquivo} type="file" accept=".xlsx" className="hidden" onChange={(e) => escolherArquivo(e.target.files?.[0])} />
-                <div
-                  onClick={() => inputArquivo.current?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); escolherArquivo(e.dataTransfer.files?.[0]); }}
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-[#F39200] transition cursor-pointer bg-gray-50"
-                >
-                  <i className="fa-regular fa-file-excel text-4xl text-green-600 mb-2"></i>
-                  <p className="text-sm font-semibold text-gray-700">{arquivo ? arquivo.name : "Clique ou arraste o arquivo aqui"}</p>
-                  {arquivo && <p className="text-xs text-gray-400">{(arquivo.size / 1024).toFixed(0)} KB</p>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Semestre da oferta
-                    <input value={impCodigo} onChange={(e) => { setImpCodigo(e.target.value); setPrevia(null); }} placeholder="2027.1" className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-normal" />
-                  </label>
-                  <div className="space-y-2 text-sm text-gray-700 pt-6">
-                    <label className="flex items-center gap-2"><input type="checkbox" checked={impPublicar} onChange={(e) => setImpPublicar(e.target.checked)} /> Publicar (passa a ser a oferta exibida)</label>
-                    {previa?.ofertaExistente && (
-                      <label className="flex items-center gap-2 text-red-700 font-semibold"><input type="checkbox" checked={impSubstituir} onChange={(e) => setImpSubstituir(e.target.checked)} /> Substituir a oferta {previa.codigo}</label>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={previsualizar} disabled={!arquivo || pendente} className="bg-[#1A2332] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex-1">
-                    {pendente ? "Lendo..." : "1. Conferir Arquivo"}
-                  </button>
-                  <button
-                    onClick={importar}
-                    disabled={!previa?.ok || previa.gravado || pendente || Boolean(previa.ofertaExistente && !impSubstituir)}
-                    className="bg-[#F39200] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex-1"
-                  >
-                    2. Importar
-                  </button>
-                </div>
-              </div>
-
-              {previa && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto space-y-4 text-sm">
-                  {previa.erro && <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 font-semibold">{previa.erro}</div>}
-                  {previa.gravado && <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 font-semibold">Oferta {previa.codigo} gravada com {previa.turmas} turmas.</div>}
-                  {previa.turmas != null && (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {[
-                          ["Turmas lidas", previa.turmas],
-                          ["Comunalidade", previa.comunalidade],
-                          ["Choques", previa.choques?.filter((c) => c.gravidade === "ERRO").length],
-                          ["Para confirmar", previa.choques?.filter((c) => c.gravidade === "AVISO").length],
-                        ].map(([rotulo, n]) => (
-                          <div key={String(rotulo)} className="bg-gray-50 rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-[#1A2332]">{n ?? 0}</div>
-                            <div className="text-xs text-gray-500">{rotulo}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-gray-500">Aba lida: <b>{previa.aba}</b>. Nada foi gravado ainda{previa.gravado ? " (agora já foi)" : ""}.</p>
-                      {previa.ofertaExistente && (
-                        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3">
-                          A oferta <b>{previa.codigo}</b> já existe ({previa.ofertaExistente.status}) com {previa.ofertaExistente.turmas} turmas
-                          {previa.ofertaExistente.alteracoes > 0 && ` e ${previa.ofertaExistente.alteracoes} alterações do dashboard`}. Ao substituir, essas turmas
-                          {previa.ofertaExistente.alteracoes > 0 && " e alterações"} são apagadas. Cadastros e avisos não mudam.
-                        </div>
-                      )}
-                      {([
-                        ["Professores novos", previa.professoresNovos],
-                        ["Disciplinas novas (sem código de matriz)", previa.disciplinasNovas],
-                        ["Laboratórios novos (sem capacidade)", previa.salasNovas],
-                        ["Turmas de alunos novas", previa.gruposNovos],
-                      ] as const).map(([rotulo, lista]) => lista && lista.length > 0 && (
-                        <details key={rotulo}>
-                          <summary className="cursor-pointer font-semibold text-gray-700">{rotulo}: {lista.length}</summary>
-                          <p className="text-gray-600 mt-1">{lista.join(" · ")}</p>
-                        </details>
-                      ))}
-                      {previa.problemas && previa.problemas.length > 0 && (
-                        <details open>
-                          <summary className="cursor-pointer font-semibold text-gray-700">Linhas para conferir na planilha: {previa.problemas.length}</summary>
-                          <ul className="mt-1 space-y-1">{previa.problemas.map((p, i) => <li key={i} className="text-gray-600">Linha {p.linha}: {p.mensagem}</li>)}</ul>
-                        </details>
-                      )}
-                      {previa.choques && previa.choques.length > 0 && (
-                        <details open>
-                          <summary className="cursor-pointer font-semibold text-gray-700">Choques encontrados: {previa.choques.length}</summary>
-                          <ul className="mt-1 space-y-1">
-                            {previa.choques.map((c, i) => (
-                              <li key={i} className={c.gravidade === "ERRO" ? "text-red-700" : "text-yellow-700"}>
-                                <i className={`fa-solid ${c.gravidade === "ERRO" ? "fa-circle-xmark" : "fa-triangle-exclamation"} mr-1`}></i>
-                                Linha {c.linha}: {c.mensagem}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
+          {tab === "importar" && <TelaImportar ofertaAtual={dados.oferta} />}
 
           {/* 5. HISTÓRICO DE AVISOS */}
-          {tab === "historico" && (
-            <section className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 font-bold text-[#1A2332]">Histórico de Disparos WhatsApp</div>
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead className="bg-gray-100 text-xs uppercase text-gray-600">
-                    <tr>
-                      <th className="p-3">Data/Hora</th>
-                      <th className="p-3">Turma</th>
-                      <th className="p-3">Mensagem</th>
-                      <th className="p-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dados.avisos.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nenhum aviso ainda.</td></tr>}
-                    {dados.avisos.map((a) => (
-                      <tr key={a.id}>
-                        <td className="p-3 text-xs text-gray-500">{a.quando}</td>
-                        <td className="p-3 font-semibold">{a.turma}</td>
-                        <td className="p-3">{a.mensagem}</td>
-                        <td className="p-3 text-center">
-                          <span className={`${a.status === "Falhou" ? "bg-red-100 text-red-700" : a.status === "Pendente" ? "bg-red-50 text-red-600" : "bg-green-100 text-green-700"} text-xs px-2.5 py-0.5 rounded-full font-bold`}>{a.status === "Pendente" && <i className="fa-solid fa-circle-exclamation mr-1"></i>}{a.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
+          {tab === "historico" && <TelaHistorico avisos={dados.avisos} />}
 
           {/* CADASTROS BASE */}
           {tab === "turmas" && (
@@ -1195,72 +938,17 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </section>
           )}
 
-          {tab === "usuarios" && usuario.admin && (
-            <section className="space-y-4">
-              <div>
-                <h3 className="font-bold text-[#1A2332]">Usuários</h3>
-                <p className="text-xs text-gray-500">Contas criadas na tela de login ficam aguardando aprovação até um administrador liberar aqui.</p>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {dados.usuarios.map((u) => {
-                    const eu = u.id === usuario.id;
-                    return (
-                      <li key={u.id} className="py-3 flex flex-wrap justify-between items-center gap-3">
-                        <div>
-                          <p className="font-bold text-gray-900">
-                            {u.nome} {eu && <span className="text-xs font-normal text-gray-400">(você)</span>}
-                            {u.admin && <span className="ml-2 bg-[#1A2332] text-white text-[10px] px-2 py-0.5 rounded-full font-bold align-middle">Administrador</span>}
-                          </p>
-                          <p className="text-xs text-gray-500">{u.email} · desde {u.desde}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {u.ativo ? (
-                            <span className="bg-green-100 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-bold">Ativo</span>
-                          ) : (
-                            <span className="bg-red-50 text-red-600 text-xs px-2.5 py-0.5 rounded-full font-bold">
-                              <i className="fa-solid fa-circle-exclamation mr-1"></i>Aguardando aprovação
-                            </span>
-                          )}
-                          {!eu && (u.ativo ? (
-                            <button onClick={() => mudarAcesso(u.id, false, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#F39200]">Desativar</button>
-                          ) : (
-                            <button onClick={() => mudarAcesso(u.id, true, u.nome)} disabled={pendente} className="px-3 py-1.5 bg-[#F39200] text-white rounded-lg text-xs font-bold">Aprovar</button>
-                          ))}
-                          {!eu && u.ativo && (
-                            <button onClick={() => mudarPerfil(u.id, !u.admin, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
-                              {u.admin ? "Remover admin" : "Tornar admin"}
-                            </button>
-                          )}
-                          {!eu && (
-                            <button onClick={() => removerUsuario(u.id, u.nome)} disabled={pendente} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </section>
-          )}
+          {tab === "usuarios" && usuario.admin && <TelaUsuarios usuarios={dados.usuarios} eu={usuario} />}
 
-          {tab === "whatsapp" && (
-            <section className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-md mx-auto text-center space-y-4">
-                <div className="w-16 h-16 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center mx-auto text-3xl"><i className="fa-brands fa-whatsapp"></i></div>
-                <h3 className="text-lg font-bold text-[#1A2332]">Status do Bot WhatsApp</h3>
-                <p className="text-xs text-gray-600 font-bold bg-gray-100 py-1.5 rounded-lg">● NÃO CONECTADO</p>
-                <p className="text-sm text-gray-600">
-                  O envio automático ainda não foi implementado. Os avisos gerados ficam como <b>Pendente</b> no Histórico de Avisos
-                  {avisosPendentes > 0 && <> ({avisosPendentes} na fila)</>}.
-                </p>
-              </div>
-            </section>
-          )}
+          {tab === "whatsapp" && <TelaBot avisosPendentes={avisosPendentes} />}
+          {tab === "indicadores" && <TelaIndicadores dados={dados} />}
+          {tab === "calendario" && <TelaCalendario key={dados.oferta} calendario={dados.calendario} oferta={dados.oferta} />}
+          {tab === "atividades" && usuario.admin && <TelaAtividades atividades={dados.atividades} />}
         </div>
       </main>
 
       {/* MODAIS */}
+      {trocandoSenha && <ModalSenha onFechar={() => setTrocandoSenha(false)} />}
       {modal === "edit" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
@@ -1323,6 +1011,25 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <div className="space-y-3 text-sm">
               <div><label className="block font-semibold mb-1">Nome Completo</label><input value={prof.nome} onChange={(e) => setProf({ ...prof, nome: e.target.value })} type="text" placeholder="Ex: Prof. Anderson Seixas" className={inp} /></div>
               <div><label className="block font-semibold mb-1">E-mail Institucional</label><input value={prof.email} onChange={(e) => setProf({ ...prof, email: e.target.value })} type="email" placeholder="Ex: professor@unisapiens.edu.br" className={inp} /></div>
+              <div>
+                <label className="block font-semibold mb-1">Dias em que NÃO pode dar aula</label>
+                <div className="flex flex-wrap gap-2">
+                  {OPCOES_DIA.map(([tela, rotulo]) => {
+                    const banco = tela.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const marcado = prof.dias.includes(banco);
+                    return (
+                      <label key={tela} className={`px-2.5 py-1 rounded-lg border text-xs cursor-pointer ${marcado ? "bg-red-50 border-red-300 text-red-700 font-semibold" : "border-gray-200 text-gray-600"}`}>
+                        <input
+                          type="checkbox" className="hidden" checked={marcado}
+                          onChange={() => setProf({ ...prof, dias: marcado ? prof.dias.filter((d) => d !== banco) : [...prof.dias, banco] })}
+                        />
+                        {rotulo.split("-")[0]}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">A Nova Oferta, a realocação e o gerador de semestre respeitam esses dias.</p>
+              </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
