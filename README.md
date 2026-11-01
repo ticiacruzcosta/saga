@@ -1,6 +1,6 @@
 # SAGA — Sistema de Avisos e Gestão Acadêmica
 
-Projeto de Extensão IV · Faculdade Unisapiens
+Projeto de Extensão IV · Centro Universitário Unisapiens 
 
 Sistema web para a coordenação **montar a oferta de disciplinas do semestre sem choques** de horário,
 professor, laboratório ou turma, acompanhar as aulas do dia e gerar avisos para os grupos de WhatsApp.
