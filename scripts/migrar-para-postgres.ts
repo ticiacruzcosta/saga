@@ -5,6 +5,7 @@
 //
 // As tabelas precisam existir antes: o `npm run migrar` roda `prisma db push` primeiro.
 
+import { createInterface } from "node:readline/promises";
 import { DatabaseSync } from "node:sqlite";
 import { Prisma, PrismaClient } from "@prisma/client";
 
@@ -14,7 +15,7 @@ const substituir = process.argv.includes("--substituir");
 // Ordem que respeita as chaves estrangeiras (quem é referenciado vem antes)
 const ORDEM = [
   "Curso", "Ambiente", "Professor", "Disciplina", "MatrizItem", "ProfessorDisciplina", "Rodizio",
-  "GrupoAlunos", "Oferta", "Turma", "Alteracao", "Aviso", "Usuario", "DiaSemAula", "Atividade",
+  "GrupoAlunos", "Oferta", "Turma", "Alteracao", "Aviso", "Usuario", "Atividade",
 ];
 // Sessões de login não são copiadas: todo mundo entra de novo no site novo.
 
@@ -46,6 +47,15 @@ async function main() {
     process.exit(1);
   }
   if (substituir) {
+    // O banco do .env é o do site no ar: apagar exige confirmação digitada
+    const host = new URL(process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "postgresql://?").hostname;
+    const leitor = createInterface({ input: process.stdin, output: process.stdout });
+    const resposta = await leitor.question(`\nIsto APAGA todos os dados do banco ${host} (o do site no ar) e copia os do ${ARQUIVO_SQLITE}.\nDigite APAGAR para continuar: `);
+    leitor.close();
+    if (resposta.trim() !== "APAGAR") {
+      console.log("Cancelado. Nada foi alterado.");
+      process.exit(0);
+    }
     const todas = [...ORDEM, "Sessao"].map((m) => `"${tabela(m)}"`).join(", ");
     await prisma.$executeRawUnsafe(`TRUNCATE ${todas} RESTART IDENTITY CASCADE`);
   }

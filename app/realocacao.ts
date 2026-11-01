@@ -6,7 +6,7 @@ import { exigirUsuario } from "@/lib/auth";
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { fotoTurmas, registrar } from "@/lib/atividade";
+import { registrar } from "@/lib/atividade";
 import type { UsuarioLogado } from "@/lib/auth";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio, type TurmaCompleta } from "@/lib/dados";
 import {
@@ -88,7 +88,6 @@ async function gravar(eu: UsuarioLogado, base: NonNullable<Awaited<ReturnType<ty
   const depois = onde(p.dia, p.inicio, p.fim, amb?.codigo);
   const dados = { diaSemana: p.dia, horaInicio: p.inicio, horaFim: p.fim, ambienteId: p.ambienteId };
   const disciplina = t.nomeNaPlanilha ?? t.disciplina.nome;
-  const foto = await fotoTurmas(t.id);
 
   await prisma.$transaction(async (tx) => {
     await tx.turma.update({ where: { id: t.id }, data: dados });
@@ -108,7 +107,7 @@ async function gravar(eu: UsuarioLogado, base: NonNullable<Awaited<ReturnType<ty
       }
     }
   });
-  await registrar(eu, "Realocação", `${disciplina} (${t.grupo?.nome ?? "—"}): ${antes} → ${depois}`, { tipo: "restaurarTurmas", turmas: foto });
+  await registrar(eu, "Realocação", `${disciplina} (${t.grupo?.nome ?? "—"}): ${antes} → ${depois}`);
   aplicarNoContexto(base.ctx, t.id, { ...p, dia: p.dia as OpcaoRealocacao["dia"], ambienteCodigo: amb?.codigo ?? null, muda: "", avisos: [], custo: 0 });
   return depois;
 }

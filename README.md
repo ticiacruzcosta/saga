@@ -1,30 +1,63 @@
 # SAGA — Sistema de Avisos e Gestão Acadêmica
 
-Projeto de Extensão IV · Centro Universitário Unisapiens 
+Projeto de Extensão IV · Centro Universitário Unisapiens
 
-Sistema web para a coordenação **montar a oferta de disciplinas do semestre sem choques** de horário,
-professor, laboratório ou turma, acompanhar as aulas do dia e gerar avisos para os grupos de WhatsApp.
+Sistema web para a coordenação **montar a oferta de disciplinas do semestre sem choques** de horário, professor,
+laboratório ou turma, acompanhar as aulas do dia e preparar os avisos para os grupos de WhatsApp das turmas.
 
-## Funcionalidades
+**Acesse:** https://saga-liard.vercel.app
+
+---
+
+## Sumário
+
+1. [Como acessar](#1-como-acessar)
+2. [O que o sistema faz](#2-o-que-o-sistema-faz)
+3. [Rodar no seu computador](#3-rodar-no-seu-computador)
+4. [Como o site é publicado](#4-como-o-site-é-publicado)
+5. [Organização do código](#5-organização-do-código)
+6. [Problemas comuns](#6-problemas-comuns)
+
+---
+
+## 1. Como acessar
+
+1. Abra **https://saga-liard.vercel.app** e clique em **Criar nova conta**.
+2. Preencha nome, e-mail e senha (mínimo de 8 caracteres).
+3. A conta fica **aguardando aprovação**. Um administrador libera em *Sistema → Usuários*. Depois disso, é só entrar.
+
+Perfis:
+
+| Perfil | Pode |
+|---|---|
+| **Usuário** | usar todas as telas do sistema |
+| **Administrador** | o mesmo, e ainda aprovar, desativar e excluir contas, redefinir senhas e tornar alguém administrador |
+
+Segurança: senhas guardadas só como hash (scrypt), sessão de 12 horas e bloqueio de 5 minutos após 5 senhas erradas seguidas.
+Cada pessoa troca a própria senha no ícone de chave, no rodapé do menu.
+
+---
+
+## 2. O que o sistema faz
 
 | Tela | O que faz |
 |---|---|
-| **Dashboard** | Aulas do dia, com calendário (clique na data) que pode colorir os dias pela ocupação das salas. O lápis registra troca de sala ou professor só daquele dia; *Aviso* gera a mensagem de WhatsApp. |
-| **Grade do Semestre** | Oferta completa com filtros e conflitos. **Realocar** sugere outro dia/horário/sala livre para uma aula; **Resolver Conflitos** sugere uma mudança para cada conflito. Seletor de semestre, **Gerar próximo semestre**, **Publicar** e exportar para **Excel** (no formato da planilha, pode ser importado de volta) ou **PDF**. |
+| **Dashboard** | Aulas do dia. Clicando na data abre um calendário, que pode colorir os dias pela ocupação das salas. O lápis troca a sala ou o professor **só daquele dia**; *Aviso* gera a mensagem para o grupo da turma. |
+| **Grade do Semestre** | Oferta completa, com filtros e conflitos. **Realocar** sugere outro dia/horário/sala livre; **Resolver Conflitos** sugere uma mudança para cada conflito. Também: escolher o semestre, **gerar o próximo**, **publicar** e exportar para **Excel** ou **PDF**. |
 | **Horário da Semana** | Quadro de segunda a sábado, com linhas por turma, professor ou sala. Pode ser impresso. |
-| **Importar Planilha** | Lê o `.xlsx` da oferta, mostra o que vai mudar (turmas, cadastros novos, choques) e só grava quando confirmado. |
-| **Histórico de Avisos** | Mensagens geradas e seu status. |
-| **Usuários** (só administradores) | Aprovar, desativar, excluir contas e tornar alguém administrador. Contas criadas na tela de login ficam aguardando aprovação. |
-| **Cadastros** | Cursos & Turmas, Professores (com os dias em que não pode dar aula), Salas & Laboratórios e Ofertas & Disciplinas: cadastrar, editar e excluir. |
+| **Importar Planilha** | Lê o `.xlsx` da oferta, mostra o que vai mudar (aulas, cadastros novos, choques) e só grava quando confirmado. |
+| **Histórico de Avisos** | Mensagens geradas. **Enviar** abre o WhatsApp com o texto pronto (você escolhe o grupo) e depois marca como enviado. |
+| **Cadastros** | Cursos e Turmas, Professores (com os dias em que não podem dar aula), Salas e Laboratórios, Ofertas e Disciplinas: cadastrar, editar e excluir. |
+| **Usuários** | Só administradores: contas de acesso. |
 
-Também: trocar a própria senha (ícone de chave no rodapé do menu), tema escuro (lua/sol no topo), atalho **/** para a busca,
-aviso ao fechar uma janela com alterações não salvas e bloqueio de 5 minutos após 5 senhas erradas seguidas.
+Outros detalhes: tema escuro (lua/sol no topo), atalho **/** para a busca e aviso ao fechar uma janela com alterações não salvas.
 
 ### Regras de conflito
 
 | Regra | Resultado |
 |---|---|
 | Professor em duas aulas no mesmo horário | bloqueia |
+| Professor num dia em que não pode dar aula | bloqueia |
 | Sala/laboratório ocupado no mesmo horário | bloqueia |
 | Mesma turma com duas aulas no mesmo horário | bloqueia |
 | Vagas acima da capacidade do laboratório ou do teto da disciplina | bloqueia |
@@ -33,138 +66,141 @@ aviso ao fechar uma janela com alterações não salvas e bloqueio de 5 minutos 
 | Aula híbrida que coincide com outra (pode alternar semanas) | alerta |
 | Laboratório sem capacidade cadastrada / professor que nunca deu a disciplina | alerta |
 | Aula assíncrona (EAD) | não gera choque |
-| Comunalidade (turma que assiste aula de outro curso) | não conta como choque duplo |
+| Comunalidade (turma que assiste à aula de outro curso) | não conta como choque duplo |
 
 ### Ciclo do semestre
 
 1. **Importar** a planilha de oferta, ou **gerar** o próximo semestre a partir do atual (2026.2 → 2027.1 → 2027.2…).
-   O gerador avança os períodos, puxa as disciplinas da matriz, escolhe professores e encaixa horários sem choque.
+   O gerador avança os períodos, puxa as disciplinas da matriz, escolhe professores e encaixa os horários sem choque.
 2. **Revisar** o rascunho na Grade: resolver conflitos e definir o que ficou "A definir".
 3. **Publicar**: o semestre passa a valer para todos e o anterior é arquivado.
 
-Semestre publicado não é sobrescrito pelo gerador. Reimportar a planilha com *Substituir* desfaz as realocações feitas na tela.
+Semestre publicado nunca é sobrescrito pelo gerador. Reimportar a planilha com *Substituir* desfaz as realocações feitas na tela.
 
-## Tecnologias
+---
 
-Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Prisma 6 com SQLite · ExcelJS.
-O script de carga inicial (`seed.py`) usa Python 3 com `openpyxl`.
+## 3. Rodar no seu computador
 
-## Como rodar
-
-Requisitos: **Node.js LTS**. Python 3 só é necessário para recriar o banco do zero.
+Para quem vai mexer no código. Precisa de **Node.js LTS** (nodejs.org) e **Git**.
 
 ```
+git clone https://github.com/ticiacruzcosta/saga.git
+cd saga
 npm install
+```
+
+Crie o arquivo **`.env`** a partir do **`.env.example`** e preencha com os endereços do banco.
+**Peça esses endereços para a Letícia em conversa particular**: eles têm a senha do banco e nunca devem ir para o GitHub
+nem para o grupo.
+
+```
 npm run dev
 ```
 
-Acesse **http://localhost:3000**. No primeiro acesso, sem nenhum usuário cadastrado, a tela de login pede nome, e-mail e senha
-(mínimo de 8 caracteres) para criar a conta de **administrador**. Depois disso, a tela passa a pedir só e-mail e senha.
-Outras pessoas usam **Criar nova conta** na tela de login; a conta nasce como usuário comum e fica aguardando até um administrador aprovar em *Sistema → Usuários*.
+Abra **http://localhost:3000** e entre com a sua conta do site.
 
-O banco fica em `prisma/dev.db` e não vai para o Git. Para criá-lo (ou recriá-lo do zero) a partir das planilhas de `dados-fonte/`:
+> ⚠️ **O seu computador usa o mesmo banco do site no ar.** O que você cadastrar, editar ou excluir testando aparece para
+> todo mundo. Para testar à vontade, crie um *branch* no Neon (uma cópia do banco) e use o endereço dele no seu `.env`.
+
+| Comando | Para quê |
+|---|---|
+| `npm run dev` | sistema no modo de desenvolvimento (atualiza sozinho ao salvar) |
+| `npm test` | testes automáticos: regras de choque, gerador, realocação, leitura da planilha, datas |
+| `npm run build` | confere se o projeto monta para produção (o mesmo que a Vercel faz) |
+| `npm run banco:studio` | abre o banco numa tela visual (Prisma Studio) |
+| `npm run banco:tabelas` | aplica no banco as mudanças feitas em `prisma/schema.prisma` |
+
+---
+
+## 4. Como o site é publicado
+
+| Parte | Onde fica |
+|---|---|
+| Código | GitHub: `ticiacruzcosta/saga` |
+| Site | **Vercel** (plano Hobby), funções em São Paulo (`gru1`, ver `vercel.json`) |
+| Banco | **Neon** (PostgreSQL, plano Free), região São Paulo |
+
+- **Atualizar o site:** cada `git push` na branch `main` faz a Vercel montar e publicar a versão nova sozinha (cerca de 1 minuto).
+  Se a montagem falhar, a versão anterior continua no ar. O andamento aparece em *Deployments*, no painel da Vercel.
+- **Endereço do banco:** fica nas variáveis `DATABASE_URL` (conexão com *pool*, usada pelo site) e `DIRECT_URL` (conexão direta,
+  usada para criar e alterar tabelas): no `.env` de cada computador e em *Settings → Environment Variables*, na Vercel.
+- **Primeiro acesso do dia mais lento:** no plano gratuito, o Neon desliga quando ninguém usa e leva alguns segundos para ligar de novo.
+- **Backup:** o Neon guarda o histórico das alterações. Em *Backup & Restore*, no painel, dá para voltar o banco a um momento anterior.
+- **Auditoria:** quem cadastrou, editou, excluiu, importou ou publicou fica registrado na tabela `atividades` (visível em *Tables*, no Neon).
+
+### Recriar o banco a partir das planilhas (avançado)
+
+As planilhas originais ficam em `dados-fonte/`. O `seed.py` (Python 3 + `openpyxl`) monta um banco local `prisma/dev.db` a partir delas,
+e o `migrar` copia esse banco para o Neon:
 
 ```
 pip install openpyxl
 npm run banco
+npm run migrar -- --substituir
 ```
 
-O resultado esperado é `127 de 127 linhas conferem com a planilha`. Também é gerado `conferencia.xlsx` com os possíveis choques
-da planilha original. **Atenção:** `npm run banco` apaga o banco inteiro. No dia a dia, use a tela *Importar Planilha*.
+> ⚠️ O último comando **apaga todo o banco do site no ar** (contas, avisos, alterações) e por isso pede para digitar `APAGAR`.
+> No dia a dia, use a tela **Importar Planilha**, que troca só a oferta.
 
-| Comando | Para quê |
-|---|---|
-| `npm run dev` | servidor de desenvolvimento |
-| `npm run build` / `npm start` | versão de produção |
-| `npm run banco` | recria o banco a partir das planilhas |
-| `npm run banco:studio` | abre o banco numa interface visual (Prisma Studio) |
-| `npm test` | testes automáticos (regras de choque, gerador, realocação, leitura da planilha, datas) |
-| `npx prisma db push` | aplica mudanças feitas em `prisma/schema.prisma` |
+---
 
-### Publicar na internet (Vercel + Neon)
+## 5. Organização do código
 
-Endereço publicado: **https://saga-liard.vercel.app** (as funções rodam em São Paulo, `gru1`, perto do banco: ver `vercel.json`).
-
-O banco é PostgreSQL no **Neon** e o site roda na **Vercel**; os endereços do banco ficam no `.env` (modelo em `.env.example`), que não vai para o Git.
-
-1. **Neon** (neon.tech): crie um projeto (região São Paulo) e copie as duas conexões em *Connect*: a *pooled* vai em `DATABASE_URL`, a direta em `DIRECT_URL`.
-2. Crie o arquivo `.env` a partir do `.env.example` e cole os endereços.
-3. `npm run migrar`: cria as tabelas no Neon e copia todos os dados do banco local antigo (`prisma/dev.db`).
-   Para repetir apagando o que já está no Neon: `npm run migrar -- --substituir`.
-4. **Vercel** (vercel.com): *Add New → Project*, importe o repositório do GitHub, cadastre `DATABASE_URL` e `DIRECT_URL` em
-   *Environment Variables* e clique em *Deploy*. Em *Settings → Functions*, escolha a região São Paulo (`gru1`), perto do banco.
-   A partir daí, cada `git push` na branch `main` publica a nova versão sozinho.
-
-O `npm run banco` (recriar tudo a partir das planilhas) continua gerando o `prisma/dev.db`; depois dele, `npm run migrar -- --substituir` leva o resultado para o Neon.
-
-### Link público (acesso de qualquer lugar)
-
-Dois cliques em **`LINK-PUBLICO.cmd`**: ele prepara a versão de produção (se o código mudou), liga o site e cria um link
-`https://….trycloudflare.com` com o Cloudflare Tunnel (o link já fica copiado). Precisa do `cloudflared`
-(`winget install --id Cloudflare.cloudflared`). O link **muda a cada vez** e só funciona enquanto o computador e as janelas
-"SAGA - site" e "SAGA - link publico" estiverem abertos. Quem recebe o link cria a conta na tela de login e um administrador aprova.
-Antes, feche o `npm run dev` (os dois usam a porta 3000).
-
-### Usar na rede da faculdade
-
-Num computador da coordenação:
-
-```
-npm run build
-npm start -- -H 0.0.0.0
-```
-
-Os demais acessam por `http://IP-DO-COMPUTADOR:3000` (IP em `ipconfig`). Para publicar na internet seria preciso
-trocar o SQLite por um banco online (ex.: PostgreSQL) e servir o site por HTTPS.
-
-## Estrutura
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Prisma 6 (PostgreSQL) · ExcelJS.
 
 ```
 app/
-  page.tsx          exige login, carrega os dados e entrega para a tela
-  login/page.tsx    tela de login (ou de primeiro acesso)
-  auth.ts           entrar, primeiro acesso e sair
-  actions.ts        nova oferta, edição, exclusão, cadastros e dashboard
-  importacao.ts     importação da planilha
-  realocacao.ts     realocar / resolver conflitos
-  ofertas.ts        semestres: escolher, gerar, publicar
-  api/exportar/     download da oferta em .xlsx
+  page.tsx            exige login, carrega os dados e entrega para a tela
+  login/page.tsx      tela de login
+  auth.ts             entrar, criar conta, sair e administrar usuários
+  actions.ts          nova oferta, edição, exclusão, cadastros, dashboard e avisos
+  importacao.ts       importação da planilha
+  realocacao.ts       realocar / resolver conflitos
+  ofertas.ts          semestres: escolher, gerar e publicar
+  api/exportar/       download da oferta em .xlsx
 components/
-  SagaApp.tsx       estrutura, Dashboard, Grade, cadastros e janelas compartilhadas
-  telas/            uma tela por arquivo (Semana, Importar, Histórico, Usuários...)
-  CalendarioDia.tsx calendário do dashboard
-  TelaLogin.tsx     formulário de login
+  SagaApp.tsx         estrutura (menu, cabeçalho), Dashboard, Grade, cadastros e janelas
+  telas/              uma tela por arquivo (Semana, Importar, Histórico, Usuários, Bot)
+  avisos.tsx          avisos rápidos e confirmações no estilo do sistema
+  CalendarioDia.tsx   calendário do Dashboard
+  TelaLogin.tsx       formulário de login e de criação de conta
 lib/
-  auth.ts              senha (scrypt), sessão e bloqueio de login
-  atividade.ts         registro de atividades e dados para desfazer
-  validacao-choque.ts  regras de conflito
-  realocacao.ts        busca de horário/sala livre
-  gerar-oferta.ts      montagem do próximo semestre
-  planilha-oferta.ts   leitura do .xlsx
-  dados.ts, vm.ts      leitura do banco e preparo dos dados da tela
-prisma/schema.prisma   modelo do banco
-dados-fonte/           planilhas originais
-docs/                  protótipo
-seed.py                carga inicial do banco
-tests/                 testes automáticos (npm test)
+  validacao-choque.ts regras de conflito
+  realocacao.ts       busca de horário/sala livre
+  gerar-oferta.ts     montagem do próximo semestre
+  planilha-oferta.ts  leitura do .xlsx
+  auth.ts             senha, sessão e perfis
+  atividade.ts        registro de atividades
+  dados.ts, vm.ts     leitura do banco e preparo dos dados da tela
+prisma/schema.prisma  modelo do banco
+scripts/              migração do banco local para o Neon
+tests/                testes automáticos
+dados-fonte/          planilhas originais da oferta
+docs/                 protótipo visual (HTML)
+seed.py               carga inicial a partir das planilhas
 ```
+
+O visual segue a identidade da instituição (azul `#1A2332` e laranja `#F39200`): as peças (botões, campos, cartões,
+janelas, tabelas) ficam definidas em `app/globals.css`, que também tem o tema escuro.
 
 ### Modelo de dados
 
-- **Curso**, **Disciplina** (regras: formato, tipo de sala, sala fixa, rodízio, duração, teto de alunos) e **MatrizItem** (curso × período × disciplina).
+- **Curso**, **Disciplina** (formato, tipo de sala, sala fixa, rodízio, duração, teto de alunos) e **MatrizItem** (curso × período × disciplina).
 - **Professor**, **Ambiente** (salas e laboratórios) e **GrupoAlunos** (turma de alunos, ex.: SIST. DE INFORM. 4º A).
 - **Oferta** (semestre: rascunho, publicada ou arquivada) e **Turma** (uma aula da oferta). `consomeDeId` liga a turma que assiste à aula de outro curso.
 - **Alteracao** (trocas do dia e realocações) e **Aviso** (mensagens de WhatsApp).
-- **Usuario** (perfil ADMIN ou USUARIO; senha guardada só como hash) e **Sessao** (token do login, válido por 12 horas).
-- **Atividade** (quem fez o quê, com os dados para desfazer) e **DiaSemAula** (feriados e recessos).
+- **Usuario** (perfil ADMIN ou USUARIO), **Sessao** (login) e **Atividade** (auditoria).
 
-## Problemas comuns
+---
+
+## 6. Problemas comuns
 
 | Mensagem | Solução |
 |---|---|
 | `'npm' não é reconhecido` | instale o Node.js e reabra o VS Code |
+| `Environment variable not found: DATABASE_URL` | falta o arquivo `.env` (veja a seção 3) |
 | `Cannot find module '.prisma/client'` | `npx prisma generate` |
-| página vazia ou `no such table` | `npm run banco` |
+| `EPERM: operation not permitted` ao gerar o Prisma | feche o `npm run dev` (ele trava o arquivo) e rode de novo |
 | erro estranho depois de atualizar o código | pare o servidor (`Ctrl + C`), apague a pasta `.next` e rode `npm run dev` |
 | `Port 3000 is already in use` | feche o outro terminal com o site ligado |
-| `'python' não é reconhecido` | use `py seed.py --recriar --relatorio conferencia.xlsx` |
+| site demora no primeiro acesso do dia | normal: o banco do Neon estava "dormindo" (veja a seção 4) |

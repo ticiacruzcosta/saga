@@ -3,7 +3,7 @@
 import { exigirUsuario } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { fotoTurmas, registrar } from "@/lib/atividade";
+import { registrar } from "@/lib/atividade";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio } from "@/lib/dados";
 import { norm } from "@/lib/texto";
 import { DIA_BANCO, ehLab, hojeData } from "@/lib/vm";
@@ -219,7 +219,6 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
     diaSemana: p.diaBanco, horaInicio: p.inicio, horaFim: p.fim, turno: grupo.turno, vagas: p.vagas,
   };
   if (input.turmaId) {
-    const foto = await fotoTurmas(input.turmaId);
     const antes = await prisma.turma.findUnique({ where: { id: input.turmaId }, include: { disciplina: true } });
     const mesmoNome = antes && norm(input.nome) === norm(antes.nomeNaPlanilha ?? antes.disciplina.nome);
     await prisma.$transaction([
@@ -237,7 +236,7 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
         },
       }),
     ]);
-    await registrar(eu, "Edição de aula", `${input.nome.trim()} (${grupo.nome}): ${resumo(p)}`, { tipo: "restaurarTurmas", turmas: foto });
+    await registrar(eu, "Edição de aula", `${input.nome.trim()} (${grupo.nome}): ${resumo(p)}`);
   } else {
     await prisma.turma.create({ data: { ofertaId: oferta.id, ...dados } });
     await registrar(eu, "Nova oferta", `${input.nome.trim()} (${grupo.nome}): ${resumo(p)}`);
@@ -419,43 +418,23 @@ export async function excluirCadastro(tipo: TipoCadastro, id: number): Promise<{
   const eu = await exigirUsuario();
   const previa = await previaExclusao(tipo, id);
   if (!previa.pode) return { ok: false, erro: previa.mensagem };
-  // Antes de apagar, registra o que foi excluído (auditoria em atividades)
   if (tipo === "sala") {
-    const registro = (await prisma.ambiente.findUnique({ where: { id } }))!;
-    const [turmas, disciplinas] = await Promise.all([
-      prisma.turma.findMany({ where: { ambienteId: id }, select: { id: true } }),
-      prisma.disciplina.findMany({ where: { ambienteFixoId: id }, select: { id: true } }),
-    ]);
-    await prisma.ambiente.delete({ where: { id } }); // aulas e disciplinas ficam sem sala (SET NULL)
-    await registrar(eu, "Exclusão", `Sala ${registro.codigo}`, {
-      tipo: "recriarAmbiente", registro, turmas: turmas.map((t) => t.id), disciplinas: disciplinas.map((d) => d.id),
-    });
+    const sala = await prisma.ambiente.delete({ where: { id } }); // aulas e disciplinas ficam sem sala (SET NULL)
+    await registrar(eu, "Exclusão", `Sala ${sala.codigo}`);
   }
   if (tipo === "professor") {
-    const registro = (await prisma.professor.findUnique({ where: { id } }))!;
-    const [turmas, habilitacoes] = await Promise.all([
-      prisma.turma.findMany({ where: { professorId: id }, select: { id: true } }),
-      prisma.professorDisciplina.findMany({ where: { professorId: id } }),
-    ]);
-    await prisma.professor.delete({ where: { id } }); // aulas ficam "A definir"
-    await registrar(eu, "Exclusão", `Professor ${registro.nome}`, {
-      tipo: "recriarProfessor", registro, turmas: turmas.map((t) => t.id), disciplinas: habilitacoes.map((h) => h.disciplinaId),
-    });
+    const professor = await prisma.professor.delete({ where: { id } }); // aulas ficam "A definir"
+    await registrar(eu, "Exclusão", `Professor ${professor.nome}`);
   }
   if (tipo === "turma") {
-    const registro = (await prisma.grupoAlunos.findUnique({ where: { id } }))!;
-    const avisos = await prisma.aviso.findMany({ where: { grupoId: id } });
-    await prisma.$transaction([prisma.aviso.deleteMany({ where: { grupoId: id } }), prisma.grupoAlunos.delete({ where: { id } })]);
-    await registrar(eu, "Exclusão", `Turma ${registro.nome}`, { tipo: "recriarGrupo", registro, avisos });
+    const [, grupo] = await prisma.$transaction([prisma.aviso.deleteMany({ where: { grupoId: id } }), prisma.grupoAlunos.delete({ where: { id } })]);
+    await registrar(eu, "Exclusão", `Turma ${grupo.nome}`);
   }
   if (tipo === "aula") {
-    const turmas = await fotoTurmas(id);
     const principal = await prisma.turma.findUnique({ where: { id }, include: { disciplina: true, grupo: true } });
     // quem assiste junto não tem aula própria: sai junto (as alterações caem em cascata)
     await prisma.$transaction([prisma.turma.deleteMany({ where: { consomeDeId: id } }), prisma.turma.delete({ where: { id } })]);
-    await registrar(eu, "Exclusão", `Aula ${principal?.nomeNaPlanilha ?? principal?.disciplina.nome} (${principal?.grupo?.nome ?? "—"})`, {
-      tipo: "recriarTurmas", turmas,
-    });
+    await registrar(eu, "Exclusão", `Aula ${principal?.nomeNaPlanilha ?? principal?.disciplina.nome} (${principal?.grupo?.nome ?? "—"})`);
   }
   atualizar();
   return { ok: true };

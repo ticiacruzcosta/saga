@@ -32,7 +32,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     ofertaAtual(), ofertaPublicada(), prisma.oferta.findMany({ orderBy: { codigo: "desc" } }),
   ]);
 
-  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, semAula] = await Promise.all([
+  const [ambientes, professores, grupos, avisos, disciplinas, usuarios] = await Promise.all([
     prisma.ambiente.findMany({ where: { NOT: { codigo: { in: ["EAD", "SALA_COMUM"] } } }, orderBy: { codigo: "asc" } }),
     prisma.professor.findMany({ orderBy: { nome: "asc" } }),
     prisma.grupoAlunos.findMany({ orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
@@ -40,9 +40,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     prisma.disciplina.findMany({ select: { nome: true }, orderBy: { nome: "asc" } }),
     // pedidos de acesso pendentes primeiro
     admin ? prisma.usuario.findMany({ orderBy: [{ ativo: "asc" }, { nome: "asc" }] }) : [],
-    prisma.diaSemAula.findMany({ orderBy: { data: "asc" } }),
   ]);
-  const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
 
   const base: DadosSaga = {
     oferta: oferta?.codigo ?? "—",
@@ -65,10 +63,6 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
       status: a.status === "ENTREGUE" ? "Entregue" : a.status === "ENVIADO" ? "Enviado" : a.status === "FALHOU" ? "Falhou" : "Pendente",
     })),
     disciplinas: [...new Set(disciplinas.map((d) => d.nome))],
-    calendario: {
-      inicio: iso(oferta?.inicioAulas), fim: iso(oferta?.fimAulas),
-      semAula: semAula.map((d) => ({ id: d.id, data: iso(d.data), descricao: d.descricao })),
-    },
     usuarios: usuarios.map((u) => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo, admin: u.perfil === "ADMIN", desde: dataHora(u.criadoEm).slice(0, 10) })),
     totalConflitos: 0,
     totalConfirmar: 0,

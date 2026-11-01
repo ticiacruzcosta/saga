@@ -167,15 +167,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     irPara(d);
   }
 
-  // Feriado/recesso cadastrado ou data fora do período letivo: não há aula
-  const semAula = useMemo(() => {
-    const feriados = new Map(dados.calendario.semAula.map((d) => [d.data, d.descricao]));
-    const { inicio, fim } = dados.calendario;
-    return (data: string): string | null =>
-      feriados.get(data) ?? ((inicio && data < inicio) || (fim && data > fim) ? "Fora do período letivo" : null);
-  }, [dados]);
-  const motivoSemAula = semAula(dataVer);
-
   // Salas livres por dia (para as cores do calendário): só as salas que o sistema controla
   const ocupacao = useMemo(() => {
     const controladas = new Set(dados.salas.map((s) => s.nome));
@@ -188,10 +179,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       ).size;
     return (data: string): Ocupacao | null => {
       const dia = diaDaData(data);
-      if (!dia || semAula(data)) return null;
+      if (!dia) return null;
       return { livres: controladas.size - usadas(dia, data === dados.dataHoje), total: controladas.size };
     };
-  }, [dados, semAula]);
+  }, [dados]);
 
   // Virou o dia (meia-noite em Porto Velho)? Busca os dados de novo, sem precisar de F5.
   useEffect(() => {
@@ -212,12 +203,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const dashboard = useMemo(() => {
     const termo = dashBusca.trim().toLowerCase();
     return dados.turmas
-      .filter((t) => diaVer && !motivoSemAula && t.dia === diaVer && !t.consome)
+      .filter((t) => diaVer && t.dia === diaVer && !t.consome)
       // Troca pontual (lápis) só vale hoje: nos outros dias mostra a grade normal
       .map((t) => (ehHoje ? t : { ...t, sala: t.salaGrade, prof: t.profGrade, alteradaHoje: false }))
       .filter((t) => !termo || `${t.turma} ${t.nome} ${t.prof} ${t.sala}`.toLowerCase().includes(termo))
       .sort(porDiaHora);
-  }, [dados, dashBusca, diaVer, ehHoje, motivoSemAula]);
+  }, [dados, dashBusca, diaVer, ehHoje]);
 
   const grade = useMemo(
     () =>
@@ -622,12 +613,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 <div className="relative max-w-xl">
                   <h2 className="text-2xl md:text-[26px] font-black">Olá, {usuario.nome.split(" ")[0]}</h2>
                   <p className="text-[15px] text-white/90">
-                    {motivoSemAula
-                      ? `Sem aula neste dia: ${motivoSemAula}.`
-                      : `${ehHoje ? "Hoje tem" : "Neste dia há"} ${dashboard.length} aula(s) em ${new Set(dashboard.map((t) => t.turma)).size} turma(s). ${dados.totalConflitos ? `${dados.totalConflitos} conflito(s) na grade.` : "Nenhum conflito na grade."}`}
+                    {`${ehHoje ? "Hoje tem" : "Neste dia há"} ${dashboard.length} aula(s) em ${new Set(dashboard.map((t) => t.turma)).size} turma(s). ${dados.totalConflitos ? `${dados.totalConflitos} conflito(s) na grade.` : "Nenhum conflito na grade."}`}
                   </p>
                 </div>
-                {!motivoSemAula && diaVer && (
+                {diaVer && (
                   <div className="relative flex flex-wrap gap-2">
                     <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dashboard.length} aula(s)</span>
                     {(() => { const o = ocupacao(dataVer); return o ? <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{o.livres} de {o.total} salas livres</span> : null; })()}
@@ -664,7 +653,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       </div>
                     </button>
                     {calendarioAberto && (
-                      <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} semAula={semAula} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
+                      <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
                     )}
                   </div>
                   <button onClick={() => andarDia(1)} title="Próximo dia" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200]">
@@ -696,8 +685,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                             <span className="absolute left-2 -top-1 w-8 h-[4.4rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C]" />
                             <span className="absolute left-10 top-4 w-6 h-[3.4rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-slate-600 to-[#1A2332]" />
                           </span>
-                          <b className="text-base text-[#1A2332]">{motivoSemAula ? "Sem aula neste dia" : "Nenhuma aula neste dia"}</b>
-                          <span className="text-sm">{motivoSemAula ? `${motivoSemAula}. ` : ""}Use as setas para ver outro dia.</span>
+                          <b className="text-base text-[#1A2332]">Nenhuma aula neste dia</b>
+                          <span className="text-sm">Use as setas para ver outro dia.</span>
                         </span>
                       </td></tr>
                     )}
