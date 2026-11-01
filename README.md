@@ -14,6 +14,7 @@ professor, laboratório ou turma, acompanhar as aulas do dia e gerar avisos para
 | **Horário da Semana** | Quadro de segunda a sábado, com linhas por turma, professor ou sala. Pode ser impresso. |
 | **Importar Planilha** | Lê o `.xlsx` da oferta, mostra o que vai mudar (turmas, cadastros novos, choques) e só grava quando confirmado. |
 | **Histórico de Avisos** | Mensagens geradas e seu status. |
+| **Usuários** (só administradores) | Aprovar, desativar, excluir contas e tornar alguém administrador. Contas criadas na tela de login ficam aguardando aprovação. |
 | **Cadastros** | Cursos & Turmas, Professores, Salas & Laboratórios e Ofertas & Disciplinas: cadastrar, editar e excluir. |
 
 ### Regras de conflito
@@ -54,7 +55,9 @@ npm install
 npm run dev
 ```
 
-Acesse **http://localhost:3000**.
+Acesse **http://localhost:3000**. No primeiro acesso, sem nenhum usuário cadastrado, a tela de login pede nome, e-mail e senha
+(mínimo de 8 caracteres) para criar a conta de **administrador**. Depois disso, a tela passa a pedir só e-mail e senha.
+Outras pessoas usam **Criar nova conta** na tela de login; a conta nasce como usuário comum e fica aguardando até um administrador aprovar em *Sistema → Usuários*.
 
 O banco fica em `prisma/dev.db` e não vai para o Git. Para criá-lo (ou recriá-lo do zero) a partir das planilhas de `dados-fonte/`:
 
@@ -84,13 +87,15 @@ npm start -- -H 0.0.0.0
 ```
 
 Os demais acessam por `http://IP-DO-COMPUTADOR:3000` (IP em `ipconfig`). Para publicar na internet seria preciso
-trocar o SQLite por um banco online (ex.: PostgreSQL) e, antes de tudo, criar login.
+trocar o SQLite por um banco online (ex.: PostgreSQL) e servir o site por HTTPS.
 
 ## Estrutura
 
 ```
 app/
-  page.tsx          carrega os dados e entrega para a tela
+  page.tsx          exige login, carrega os dados e entrega para a tela
+  login/page.tsx    tela de login (ou de primeiro acesso)
+  auth.ts           entrar, primeiro acesso e sair
   actions.ts        nova oferta, edição, exclusão, cadastros e dashboard
   importacao.ts     importação da planilha
   realocacao.ts     realocar / resolver conflitos
@@ -98,7 +103,9 @@ app/
 components/
   SagaApp.tsx       a interface (todas as telas)
   CalendarioDia.tsx calendário do dashboard
+  TelaLogin.tsx     formulário de login
 lib/
+  auth.ts              senha (scrypt) e sessão
   validacao-choque.ts  regras de conflito
   realocacao.ts        busca de horário/sala livre
   gerar-oferta.ts      montagem do próximo semestre
@@ -106,7 +113,7 @@ lib/
   dados.ts, vm.ts      leitura do banco e preparo dos dados da tela
 prisma/schema.prisma   modelo do banco
 dados-fonte/           planilhas originais
-docs/                  documentação, ata da reunião, protótipo e perguntas em aberto
+docs/                  documentação, ata da reunião e protótipo
 seed.py                carga inicial do banco
 ```
 
@@ -116,15 +123,7 @@ seed.py                carga inicial do banco
 - **Professor**, **Ambiente** (salas e laboratórios) e **GrupoAlunos** (turma de alunos, ex.: SIST. DE INFORM. 4º A).
 - **Oferta** (semestre: rascunho, publicada ou arquivada) e **Turma** (uma aula da oferta). `consomeDeId` liga a turma que assiste à aula de outro curso.
 - **Alteracao** (trocas do dia e realocações) e **Aviso** (mensagens de WhatsApp).
-
-## Limitações conhecidas
-
-- **Sem login**: qualquer pessoa com acesso ao endereço pode alterar dados. Use apenas na rede interna até existir autenticação.
-- **Bot de WhatsApp não implementado**: os avisos ficam como *Pendente* no histórico.
-- **Cursos sem matriz** (Eng. Civil, Elétrica, Eng. Software, Big Data, Jogos Digitais): não entram no gerador de semestre; dependem da planilha.
-- **Quantidade de alunos por turma** não preenchida: o sistema ainda não confere lotação nem sugere divisão em turmas A/B.
-
-As perguntas em aberto para a coordenação estão em [docs/perguntas-e-proximos-passos.md](docs/perguntas-e-proximos-passos.md).
+- **Usuario** (perfil ADMIN ou USUARIO; senha guardada só como hash) e **Sessao** (token do login, válido por 12 horas).
 
 ## Problemas comuns
 

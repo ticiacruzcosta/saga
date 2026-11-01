@@ -310,3 +310,33 @@ model Aviso {
   @@index([criadoEm])
   @@map("avisos")
 }
+
+// =============================================================================
+// ACESSO
+// =============================================================================
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String // scrypt: "sal:hash" em hexadecimal
+  ativo     Boolean  @default(true)
+  // ADMIN (gerencia usuários) | USUARIO
+  perfil    String   @default("USUARIO")
+  criadoEm  DateTime @default(now())
+
+  sessoes Sessao[]
+
+  @@map("usuarios")
+}
+
+model Sessao {
+  token     String   @id // aleatório, guardado no cookie httpOnly
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime
+  criadaEm  DateTime @default(now())
+
+  @@index([usuarioId])
+  @@map("sessoes")
+}

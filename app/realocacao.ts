@@ -1,5 +1,6 @@
 "use server";
 
+import { exigirUsuario } from "@/lib/auth";
 // Realocação de aulas com conflito (Grade do Semestre).
 // A mudança vale para o semestre e fica registrada em `alteracoes` com tipo REALOCACAO.
 
@@ -46,6 +47,7 @@ const paraVM = (o: OpcaoRealocacao): OpcaoRealocacaoVM => ({
 
 /** Opções para uma turma com conflito. Não grava nada. */
 export async function sugerirRealocacao(turmaId: number): Promise<SugestaoRealocacaoVM> {
+  await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, erro: "Nenhuma oferta no banco." };
   const t = base.turmas.find((x) => x.id === turmaId);
@@ -108,6 +110,7 @@ async function gravar(base: NonNullable<Awaited<ReturnType<typeof carregarContex
 }
 
 export async function aplicarRealocacao(p: Pedido): Promise<{ ok: boolean; erro?: string; resumo?: string }> {
+  await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, erro: "Nenhuma oferta no banco." };
   const c = conferirOpcao(base.ctx, p.turmaId, p);
@@ -119,6 +122,7 @@ export async function aplicarRealocacao(p: Pedido): Promise<{ ok: boolean; erro?
 
 /** "Resolver todos": uma sugestão para cada aula com choque. Não grava nada. */
 export async function planejarResolucao(): Promise<PlanoResolucaoVM> {
+  await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, erro: "Nenhuma oferta no banco.", movimentos: [], semSolucao: [] };
   const porId = new Map(base.turmas.map((t) => [t.id, t]));
@@ -135,6 +139,7 @@ export async function planejarResolucao(): Promise<PlanoResolucaoVM> {
 
 /** Grava as sugestões marcadas, na ordem, conferindo cada uma antes. */
 export async function aplicarResolucao(itens: Pedido[]): Promise<{ ok: boolean; aplicadas: number; falhas: string[] }> {
+  await exigirUsuario();
   const base = await carregarContexto();
   if (!base) return { ok: false, aplicadas: 0, falhas: ["Nenhuma oferta no banco."] };
   let aplicadas = 0;

@@ -12,6 +12,8 @@ import {
 import { confirmarImportacao, previsualizarImportacao } from "@/app/importacao";
 import { aplicarRealocacao, aplicarResolucao, planejarResolucao, sugerirRealocacao } from "@/app/realocacao";
 import { gerarProximaOferta, publicarOferta, selecionarOferta } from "@/app/ofertas";
+import { definirAcesso, definirAdmin, excluirUsuario, sair } from "@/app/auth";
+import type { UsuarioLogado } from "@/lib/auth";
 import { proximoCodigo } from "@/lib/gerar-oferta";
 import { diaDaData, diaMes, somarDias } from "@/lib/datas";
 import CalendarioDia, { type Ocupacao } from "./CalendarioDia";
@@ -36,6 +38,7 @@ const TITULOS: Record<string, string> = {
   salas: "CADASTRO DE SALAS E LABS",
   disciplinas: "CADASTRO DE OFERTAS",
   whatsapp: "BOT WHATSAPP",
+  usuarios: "USUÁRIOS DO SISTEMA",
 };
 
 const OPCOES_DIA = [
@@ -60,7 +63,7 @@ function Selo({ tipo }: { tipo: "ok" | "erro" | "confirmar" }) {
   );
 }
 
-export default function SagaApp({ dados }: { dados: DadosSaga }) {
+export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario: UsuarioLogado }) {
   const router = useRouter();
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -472,9 +475,35 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
     });
   }
   const avisosPendentes = dados.avisos.filter((a) => a.status === "Pendente").length;
+  const contasPendentes = dados.usuarios.filter((u) => !u.ativo).length;
+
+  function mudarAcesso(id: number, ativo: boolean, nome: string) {
+    if (!ativo && !confirm(`Desativar o acesso de ${nome}? A pessoa sai do sistema na hora.`)) return;
+    iniciar(async () => {
+      const r = await definirAcesso(id, ativo);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
+  function mudarPerfil(id: number, admin: boolean, nome: string) {
+    if (!confirm(admin ? `Tornar ${nome} administrador? Ele poderá aprovar, desativar e excluir contas.` : `Tirar ${nome} da administração?`)) return;
+    iniciar(async () => {
+      const r = await definirAdmin(id, admin);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
+  function removerUsuario(id: number, nome: string) {
+    if (!confirm(`Excluir a conta de ${nome}? Não dá para desfazer.`)) return;
+    iniciar(async () => {
+      const r = await excluirUsuario(id);
+      if (!r.ok) return alert(r.erro);
+      router.refresh();
+    });
+  }
 
   // ---------------------------------------------------------------- peças repetidas
-  const navBtn = (id: string, icone: string, nome: string, iconeCls = "text-gray-400", nomeCls = "") => (
+  const navBtn = (id: string, icone: string, nome: string, iconeCls = "text-gray-400", nomeCls = "", alerta = 0) => (
     <li>
       <button
         onClick={() => setTab(id)}
@@ -483,8 +512,17 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
           tab === id ? "bg-[#F39200] text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
         }`}
       >
-        <i className={`${icone} w-5 text-center shrink-0 ${tab === id ? "" : iconeCls}`}></i>
+        <span className="relative shrink-0">
+          <i className={`${icone} w-5 text-center ${tab === id ? "" : iconeCls}`}></i>
+          {/* menu recolhido: só um ponto vermelho */}
+          {alerta > 0 && !sidebarOpen && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500"></span>}
+        </span>
         <span className={`${sidebarOpen ? "" : "hidden"} truncate ${nomeCls}`}>{nome}</span>
+        {alerta > 0 && sidebarOpen && (
+          <span title={`${alerta} aviso(s) pendente(s)`} className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center">
+            {alerta}
+          </span>
+        )}
       </button>
     </li>
   );
@@ -525,7 +563,7 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
                 {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre", "text-[#F39200]", "font-bold text-white")}
                 {navBtn("horario-semana", "fa-solid fa-calendar-week", "Horário da Semana")}
                 {navBtn("importar", "fa-solid fa-file-import", "Importar Planilha")}
-                {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos")}
+                {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos", undefined, "", avisosPendentes)}
               </ul>
             </div>
             <div>
@@ -539,17 +577,25 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
             </div>
             <div>
               <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3`}>Sistema</p>
-              <ul className="space-y-1">{navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot", "text-gray-400")}</ul>
+              <ul className="space-y-1">
+                {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", undefined, "", contasPendentes)}
+                {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot", "text-gray-400")}
+              </ul>
             </div>
           </nav>
         </div>
 
         <div className="p-3 border-t border-gray-700/50 flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-full bg-[#F39200] text-white flex items-center justify-center font-bold text-xs shrink-0">A</div>
-          <div className={`${sidebarOpen ? "" : "hidden"} overflow-hidden`}>
-            <p className="text-xs font-medium text-white truncate">Coordenação / Admin</p>
-            <p className="text-[10px] text-gray-400 truncate">admin@unisapiens.edu.br</p>
+          <div className="w-8 h-8 rounded-full bg-[#F39200] text-white flex items-center justify-center font-bold text-xs shrink-0">
+            {usuario.nome.charAt(0).toUpperCase()}
           </div>
+          <div className={`${sidebarOpen ? "" : "hidden"} overflow-hidden flex-1`}>
+            <p className="text-xs font-medium text-white truncate">{usuario.nome}</p>
+            <p className="text-[10px] text-gray-400 truncate">{usuario.email}</p>
+          </div>
+          <button onClick={() => sair()} title="Sair" className={`${sidebarOpen ? "" : "hidden"} text-gray-400 hover:text-white p-1.5 shrink-0`}>
+            <i className="fa-solid fa-right-from-bracket"></i>
+          </button>
         </div>
       </aside>
 
@@ -560,11 +606,6 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
               <i className="fa-solid fa-bars"></i>
             </button>
             <h2 className="text-xl font-bold text-[#1A2332]">{titulo}</h2>
-            {avisosPendentes > 0 && (
-              <button onClick={() => setTab("historico")} className="bg-yellow-100 text-yellow-800 text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
-                <i className="fa-brands fa-whatsapp"></i> {avisosPendentes} aviso(s) pendente(s)
-              </button>
-            )}
           </div>
         </header>
 
@@ -1047,7 +1088,7 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
                         <td className="p-3 font-semibold">{a.turma}</td>
                         <td className="p-3">{a.mensagem}</td>
                         <td className="p-3 text-center">
-                          <span className={`${a.status === "Falhou" ? "bg-red-100 text-red-700" : a.status === "Pendente" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700"} text-xs px-2.5 py-0.5 rounded-full font-bold`}>{a.status}</span>
+                          <span className={`${a.status === "Falhou" ? "bg-red-100 text-red-700" : a.status === "Pendente" ? "bg-red-50 text-red-600" : "bg-green-100 text-green-700"} text-xs px-2.5 py-0.5 rounded-full font-bold`}>{a.status === "Pendente" && <i className="fa-solid fa-circle-exclamation mr-1"></i>}{a.status}</span>
                         </td>
                       </tr>
                     ))}
@@ -1149,6 +1190,55 @@ export default function SagaApp({ dados }: { dados: DadosSaga }) {
                       </span>
                     </li>
                   ))}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {tab === "usuarios" && usuario.admin && (
+            <section className="space-y-4">
+              <div>
+                <h3 className="font-bold text-[#1A2332]">Usuários</h3>
+                <p className="text-xs text-gray-500">Contas criadas na tela de login ficam aguardando aprovação até um administrador liberar aqui.</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <ul className="divide-y divide-gray-200 text-sm">
+                  {dados.usuarios.map((u) => {
+                    const eu = u.id === usuario.id;
+                    return (
+                      <li key={u.id} className="py-3 flex flex-wrap justify-between items-center gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {u.nome} {eu && <span className="text-xs font-normal text-gray-400">(você)</span>}
+                            {u.admin && <span className="ml-2 bg-[#1A2332] text-white text-[10px] px-2 py-0.5 rounded-full font-bold align-middle">Administrador</span>}
+                          </p>
+                          <p className="text-xs text-gray-500">{u.email} · desde {u.desde}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {u.ativo ? (
+                            <span className="bg-green-100 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-bold">Ativo</span>
+                          ) : (
+                            <span className="bg-red-50 text-red-600 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                              <i className="fa-solid fa-circle-exclamation mr-1"></i>Aguardando aprovação
+                            </span>
+                          )}
+                          {!eu && (u.ativo ? (
+                            <button onClick={() => mudarAcesso(u.id, false, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#F39200]">Desativar</button>
+                          ) : (
+                            <button onClick={() => mudarAcesso(u.id, true, u.nome)} disabled={pendente} className="px-3 py-1.5 bg-[#F39200] text-white rounded-lg text-xs font-bold">Aprovar</button>
+                          ))}
+                          {!eu && u.ativo && (
+                            <button onClick={() => mudarPerfil(u.id, !u.admin, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
+                              {u.admin ? "Remover admin" : "Tornar admin"}
+                            </button>
+                          )}
+                          {!eu && (
+                            <button onClick={() => removerUsuario(u.id, u.nome)} disabled={pendente} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </section>

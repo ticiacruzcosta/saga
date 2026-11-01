@@ -1,5 +1,6 @@
 "use server";
 
+import { exigirUsuario } from "@/lib/auth";
 // Importação da planilha de oferta pela tela, em duas etapas com o mesmo código:
 // previsualizarImportacao (não grava) e confirmarImportacao (grava numa transação).
 // Não apaga cadastros, avisos nem outras ofertas: só recria as turmas da oferta escolhida.
@@ -270,10 +271,12 @@ async function processar(form: FormData, gravar: boolean): Promise<PreviaImporta
 
 /** Etapa 1: lê a planilha e mostra o resultado, sem gravar. */
 export async function previsualizarImportacao(form: FormData): Promise<PreviaImportacao> {
+  await exigirUsuario();
   return processar(form, false);
 }
 
 /** Etapa 2: grava a oferta (o arquivo é enviado de novo e conferido outra vez). */
 export async function confirmarImportacao(form: FormData): Promise<PreviaImportacao> {
+  await exigirUsuario();
   return processar(form, true);
 }

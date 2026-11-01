@@ -61,6 +61,10 @@ CREATE TABLE "ofertas" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "codigo
 CREATE TABLE "turmas" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "ofertaId" INTEGER NOT NULL, "disciplinaId" INTEGER NOT NULL, "grupoId" INTEGER, "letra" TEXT NOT NULL DEFAULT 'A', "professorId" INTEGER, "ambienteId" INTEGER, "formato" TEXT, "diaSemana" TEXT, "horaInicio" INTEGER, "horaFim" INTEGER, "turno" TEXT NOT NULL DEFAULT 'NOTURNO', "vagas" INTEGER, "consomeDeId" INTEGER, "nomeNaPlanilha" TEXT, "periodoNaPlanilha" TEXT, "origemLinha" INTEGER, "observacao" TEXT, CONSTRAINT "turmas_ofertaId_fkey" FOREIGN KEY ("ofertaId") REFERENCES "ofertas" ("id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "turmas_disciplinaId_fkey" FOREIGN KEY ("disciplinaId") REFERENCES "disciplinas" ("id") ON DELETE RESTRICT ON UPDATE CASCADE, CONSTRAINT "turmas_grupoId_fkey" FOREIGN KEY ("grupoId") REFERENCES "grupos_alunos" ("id") ON DELETE SET NULL ON UPDATE CASCADE, CONSTRAINT "turmas_professorId_fkey" FOREIGN KEY ("professorId") REFERENCES "professores" ("id") ON DELETE SET NULL ON UPDATE CASCADE, CONSTRAINT "turmas_ambienteId_fkey" FOREIGN KEY ("ambienteId") REFERENCES "ambientes" ("id") ON DELETE SET NULL ON UPDATE CASCADE, CONSTRAINT "turmas_consomeDeId_fkey" FOREIGN KEY ("consomeDeId") REFERENCES "turmas" ("id") ON DELETE SET NULL ON UPDATE CASCADE);
 CREATE TABLE "alteracoes" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "turmaId" INTEGER NOT NULL, "data" DATETIME NOT NULL, "tipo" TEXT NOT NULL, "valorAnterior" TEXT, "valorNovo" TEXT, "motivo" TEXT, "mensagemGerada" TEXT, "enviada" BOOLEAN NOT NULL DEFAULT false, "criadaEm" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "alteracoes_turmaId_fkey" FOREIGN KEY ("turmaId") REFERENCES "turmas" ("id") ON DELETE CASCADE ON UPDATE CASCADE);
 CREATE TABLE "avisos" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "grupoId" INTEGER NOT NULL, "conteudo" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'PENDENTE', "criadoEm" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "avisos_grupoId_fkey" FOREIGN KEY ("grupoId") REFERENCES "grupos_alunos" ("id") ON DELETE RESTRICT ON UPDATE CASCADE);
+CREATE TABLE "usuarios" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "nome" TEXT NOT NULL, "email" TEXT NOT NULL, "senhaHash" TEXT NOT NULL, "ativo" BOOLEAN NOT NULL DEFAULT true, "perfil" TEXT NOT NULL DEFAULT 'USUARIO', "criadoEm" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "sessoes" ("token" TEXT NOT NULL PRIMARY KEY, "usuarioId" INTEGER NOT NULL, "expiraEm" DATETIME NOT NULL, "criadaEm" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "sessoes_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios" ("id") ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE UNIQUE INDEX "usuarios_email_key" ON "usuarios"("email");
+CREATE INDEX "sessoes_usuarioId_idx" ON "sessoes"("usuarioId");
 CREATE UNIQUE INDEX "cursos_nome_key" ON "cursos"("nome");
 CREATE UNIQUE INDEX "cursos_sigla_key" ON "cursos"("sigla");
 CREATE UNIQUE INDEX "ambientes_codigo_key" ON "ambientes"("codigo");
@@ -77,7 +81,7 @@ CREATE INDEX "alteracoes_data_idx" ON "alteracoes"("data");
 CREATE INDEX "avisos_criadoEm_idx" ON "avisos"("criadoEm");
 """
 
-ORDEM_LIMPEZA = ["avisos", "alteracoes", "turmas", "ofertas", "grupos_alunos", "rodizios",
+ORDEM_LIMPEZA = ["sessoes", "usuarios", "avisos", "alteracoes", "turmas", "ofertas", "grupos_alunos", "rodizios",
                  "professor_disciplina", "matriz_itens", "disciplinas", "professores",
                  "ambientes", "cursos"]
 

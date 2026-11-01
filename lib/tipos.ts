@@ -34,6 +34,7 @@ export type TurmaVM = {
 export type SalaVM = { id: number; nome: string; tipo: string; cap: number | null; predio: string };
 export type ProfVM = { id: number; nome: string; email: string };
 export type GrupoVM = { id: number; nome: string; alunos: number | null; wa: string };
+export type UsuarioVM = { id: number; nome: string; email: string; ativo: boolean; admin: boolean; desde: string };
 export type AvisoVM = { id: number; quando: string; turma: string; mensagem: string; status: string };
 
 export type DadosSaga = {
@@ -48,6 +49,7 @@ export type DadosSaga = {
   professores: ProfVM[];
   grupos: GrupoVM[];
   avisos: AvisoVM[];
+  usuarios: UsuarioVM[];
   disciplinas: string[];
   totalConflitos: number;
   totalConfirmar: number;

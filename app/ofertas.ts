@@ -1,5 +1,6 @@
 "use server";
 
+import { exigirUsuario } from "@/lib/auth";
 // Semestres: escolher qual ver, publicar e gerar o próximo como rascunho.
 
 import { cookies } from "next/headers";
@@ -11,12 +12,14 @@ import type { ResultadoGeracao } from "@/lib/tipos";
 
 /** Muda o semestre que a tela mostra (só para quem escolheu: fica num cookie). */
 export async function selecionarOferta(codigo: string) {
+  await exigirUsuario();
   (await cookies()).set(COOKIE_OFERTA, codigo, { path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/");
 }
 
 /** Publica um semestre: ele passa a ser o padrão; o publicado anterior é arquivado. */
 export async function publicarOferta(codigo: string) {
+  await exigirUsuario();
   const o = await prisma.oferta.findUnique({ where: { codigo } });
   if (!o) return { ok: false, erro: "Semestre não encontrado." };
   await prisma.$transaction([
@@ -29,6 +32,7 @@ export async function publicarOferta(codigo: string) {
 
 /** Monta o semestre seguinte ao que está aberto na tela e grava como RASCUNHO. */
 export async function gerarProximaOferta(input: { abrirPrimeiro: boolean; substituir: boolean }): Promise<ResultadoGeracao> {
+  await exigirUsuario();
   const origem = await ofertaAtual();
   if (!origem) return { ok: false, erro: "Nenhuma oferta no banco para servir de base." };
   const codigo = proximoCodigo(origem.codigo);

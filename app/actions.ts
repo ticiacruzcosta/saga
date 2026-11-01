@@ -1,5 +1,6 @@
 "use server";
 
+import { exigirUsuario } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio } from "@/lib/dados";
@@ -174,6 +175,7 @@ function resumo(p: Plano | null): string {
 
 /** Chamada enquanto a janela "Nova Oferta" é preenchida: só confere, não grava. */
 export async function conferirOferta(input: OfertaInput): Promise<ResultadoOferta> {
+  await exigirUsuario();
   const r = await planejar(input);
   const conflitos = r.conflitos.map((c) => ({ gravidade: c.gravidade, mensagem: c.mensagem }));
   return { ok: Boolean(r.plano) && !conflitos.some((c) => c.gravidade === "ERRO"), conflitos, resumo: resumo(r.plano), erro: r.erro };
@@ -181,6 +183,7 @@ export async function conferirOferta(input: OfertaInput): Promise<ResultadoOfert
 
 /** "Salvar Oferta": confere de novo no servidor e grava a turma (e a disciplina, se for nova). */
 export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOferta> {
+  await exigirUsuario();
   const r = await planejar(input);
   const conflitos = r.conflitos.map((c) => ({ gravidade: c.gravidade, mensagem: c.mensagem }));
   if (!r.plano || r.erro || conflitos.some((c) => c.gravidade === "ERRO")) {
@@ -239,6 +242,7 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
 // ---------------------------------------------------------------- dashboard
 
 export async function salvarAlteracao(input: { turmaId: number; salaId: number | null; profId: number | null }) {
+  await exigirUsuario();
   const turma = await prisma.turma.findUnique({ where: { id: input.turmaId }, include: { ambiente: true, professor: true } });
   if (!turma) return { ok: false, erro: "Turma não encontrada." };
   const sala = input.salaId ? await prisma.ambiente.findUnique({ where: { id: input.salaId } }) : null;
@@ -266,6 +270,7 @@ export async function salvarAlteracao(input: { turmaId: number; salaId: number |
 }
 
 export async function enviarAviso(input: { turmaId: number; mensagem: string }) {
+  await exigirUsuario();
   const turma = await prisma.turma.findUnique({ where: { id: input.turmaId } });
   if (!turma?.grupoId) return { ok: false, erro: "Esta turma não tem grupo de alunos vinculado." };
   await prisma.aviso.create({ data: { grupoId: turma.grupoId, conteudo: input.mensagem, status: "PENDENTE" } });
@@ -277,6 +282,7 @@ export async function enviarAviso(input: { turmaId: number; mensagem: string }) 
 
 /** Cadastra (sem id) ou edita (com id) uma sala/laboratório. */
 export async function criarSala(input: { id?: number; nome: string; tipo: string; cap: number | null; predio: string }) {
+  await exigirUsuario();
   const codigo = input.nome.trim().toUpperCase();
   if (!codigo) return { ok: false, erro: "Informe a identificação." };
   const lab = input.tipo === "Laboratório/Prático";
@@ -300,6 +306,7 @@ export async function criarSala(input: { id?: number; nome: string; tipo: string
 
 /** Cadastra (sem id) ou edita (com id) um professor. */
 export async function criarProfessor(input: { id?: number; nome: string; email: string }) {
+  await exigirUsuario();
   const nome = input.nome.trim().toUpperCase();
   if (!nome) return { ok: false, erro: "Informe o nome." };
   const email = input.email.trim() || null;
@@ -323,6 +330,7 @@ const PALAVRAS_CURSO: Array<[string, string]> = [
 
 /** "Nova Turma" / editar: o nome é livre (ex.: "04º B ENG. CIVIL"); o sistema descobre curso, período e turma. */
 export async function criarGrupo(input: { id?: number; nome: string; alunos: number | null; wa: string }) {
+  await exigirUsuario();
   const nome = input.nome.trim();
   const n = norm(nome);
   if (!n) return { ok: false, erro: "Informe a turma." };
@@ -355,6 +363,7 @@ export type TipoCadastro = "sala" | "professor" | "turma" | "aula";
 
 /** Diz o que vai acontecer ao excluir, sem apagar nada. `pode = false` bloqueia. */
 export async function previaExclusao(tipo: TipoCadastro, id: number): Promise<{ pode: boolean; mensagem: string }> {
+  await exigirUsuario();
   if (tipo === "sala") {
     const a = await prisma.ambiente.findUnique({ where: { id }, include: { _count: { select: { turmas: true, disciplinasFixas: true } } } });
     if (!a) return { pode: false, mensagem: "Sala não encontrada." };
@@ -383,6 +392,7 @@ export async function previaExclusao(tipo: TipoCadastro, id: number): Promise<{ 
 }
 
 export async function excluirCadastro(tipo: TipoCadastro, id: number): Promise<{ ok: boolean; erro?: string }> {
+  await exigirUsuario();
   const previa = await previaExclusao(tipo, id);
   if (!previa.pode) return { ok: false, erro: previa.mensagem };
   if (tipo === "sala") await prisma.ambiente.delete({ where: { id } }); // aulas e disciplinas ficam sem sala (SET NULL)
