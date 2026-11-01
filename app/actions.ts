@@ -286,6 +286,19 @@ export async function enviarAviso(input: { turmaId: number; mensagem: string }) 
   return { ok: true };
 }
 
+/** Envio manual pelo WhatsApp: depois de mandar no grupo, a pessoa marca o aviso como enviado (ou volta para pendente). */
+export async function marcarAviso(id: number, enviado: boolean) {
+  const eu = await exigirUsuario();
+  const aviso = await prisma.aviso.update({
+    where: { id },
+    data: { status: enviado ? "ENVIADO" : "PENDENTE" },
+    include: { grupo: true },
+  });
+  await registrar(eu, "Aviso", `${enviado ? "Marcou como enviado" : "Voltou para pendente"} o aviso de ${aviso.grupo.nome}`);
+  atualizar();
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------- cadastros base
 
 /** Cadastra (sem id) ou edita (com id) uma sala/laboratório. */
