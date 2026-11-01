@@ -2,7 +2,7 @@
 
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 
@@ -31,8 +31,9 @@ export async function iniciarSessao(usuarioId: number) {
   const token = randomBytes(32).toString("hex");
   const expiraEm = new Date(Date.now() + DURACAO_SESSAO_MS);
   await prisma.sessao.create({ data: { token, usuarioId, expiraEm } });
-  // secure fica desligado porque, na rede da faculdade, o acesso é por http://IP:3000
-  (await cookies()).set(COOKIE_SESSAO, token, { httpOnly: true, sameSite: "lax", path: "/", expires: expiraEm });
+  // Em https (Vercel, túnel) o cookie só trafega cifrado; na rede local (http://IP:3000) precisa ficar sem "secure"
+  const https = (await headers()).get("x-forwarded-proto") === "https";
+  (await cookies()).set(COOKIE_SESSAO, token, { httpOnly: true, sameSite: "lax", path: "/", expires: expiraEm, secure: https });
 }
 
 export async function encerrarSessao() {

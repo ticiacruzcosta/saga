@@ -9,7 +9,10 @@
     "start": "next start",
     "banco": "python seed.py --recriar --relatorio conferencia.xlsx",
     "banco:studio": "prisma studio",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "postinstall": "prisma generate",
+    "banco:tabelas": "prisma db push",
+    "migrar": "prisma db push && tsx scripts/migrar-para-postgres.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -21,7 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",

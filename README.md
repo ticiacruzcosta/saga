@@ -81,6 +81,20 @@ da planilha original. **Atenção:** `npm run banco` apaga o banco inteiro. No d
 | `npm test` | testes automáticos (regras de choque, gerador, realocação, leitura da planilha, datas) |
 | `npx prisma db push` | aplica mudanças feitas em `prisma/schema.prisma` |
 
+### Publicar na internet (Vercel + Neon)
+
+O banco é PostgreSQL no **Neon** e o site roda na **Vercel**; os endereços do banco ficam no `.env` (modelo em `.env.example`), que não vai para o Git.
+
+1. **Neon** (neon.tech): crie um projeto (região São Paulo) e copie as duas conexões em *Connect*: a *pooled* vai em `DATABASE_URL`, a direta em `DIRECT_URL`.
+2. Crie o arquivo `.env` a partir do `.env.example` e cole os endereços.
+3. `npm run migrar`: cria as tabelas no Neon e copia todos os dados do banco local antigo (`prisma/dev.db`).
+   Para repetir apagando o que já está no Neon: `npm run migrar -- --substituir`.
+4. **Vercel** (vercel.com): *Add New → Project*, importe o repositório do GitHub, cadastre `DATABASE_URL` e `DIRECT_URL` em
+   *Environment Variables* e clique em *Deploy*. Em *Settings → Functions*, escolha a região São Paulo (`gru1`), perto do banco.
+   A partir daí, cada `git push` na branch `main` publica a nova versão sozinho.
+
+O `npm run banco` (recriar tudo a partir das planilhas) continua gerando o `prisma/dev.db`; depois dele, `npm run migrar -- --substituir` leva o resultado para o Neon.
+
 ### Link público (acesso de qualquer lugar)
 
 Dois cliques em **`LINK-PUBLICO.cmd`**: ele prepara a versão de produção (se o código mudou), liga o site e cria um link

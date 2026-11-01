@@ -1,14 +1,15 @@
-// Banco do SAGA (Faculdade Unisapiens).
+// Banco do SAGA (Faculdade Unisapiens): PostgreSQL (Neon). Endereços no .env (ver .env.example).
 // Depois de alterar este arquivo: npx prisma db push
-// SQLite não suporta enum: campos com lista fixa de valores são String, com os valores aceitos comentados.
+// Campos com lista fixa de valores são String, com os valores aceitos comentados (o banco começou em SQLite, sem enum).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // conexão com pool (usada pelo site)
+  directUrl = env("DIRECT_URL") // conexão direta (usada pelo prisma db push)
 }
 
 // =============================================================================
