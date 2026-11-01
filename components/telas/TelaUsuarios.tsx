@@ -7,41 +7,42 @@ import { useRouter } from "next/navigation";
 import { definirAcesso, definirAdmin, excluirUsuario, redefinirSenha } from "@/app/auth";
 import type { UsuarioLogado } from "@/lib/auth";
 import type { UsuarioVM } from "@/lib/tipos";
+import { avisar, confirmar, mostrarTexto } from "@/components/avisos";
 
 export default function TelaUsuarios({ usuarios, eu }: { usuarios: UsuarioVM[]; eu: UsuarioLogado }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
 
-  function mudarAcesso(id: number, ativo: boolean, nome: string) {
-    if (!ativo && !confirm(`Desativar o acesso de ${nome}? A pessoa sai do sistema na hora.`)) return;
+  async function mudarAcesso(id: number, ativo: boolean, nome: string) {
+    if (!ativo && !(await confirmar("A pessoa sai do sistema na hora e não consegue mais entrar.", { titulo: `Desativar ${nome}?`, botao: "Desativar", perigo: true }))) return;
     iniciar(async () => {
       const r = await definirAcesso(id, ativo);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
       router.refresh();
     });
   }
-  function mudarPerfil(id: number, admin: boolean, nome: string) {
-    if (!confirm(admin ? `Tornar ${nome} administrador? Ele poderá aprovar, desativar e excluir contas.` : `Tirar ${nome} da administração?`)) return;
+  async function mudarPerfil(id: number, admin: boolean, nome: string) {
+    if (!(await confirmar(admin ? "Poderá aprovar, desativar e excluir contas, e ver Atividades e Backup." : "Volta a ser usuário comum.", { titulo: admin ? `Tornar ${nome} administrador?` : `Tirar ${nome} da administração?`, botao: "Confirmar" }))) return;
     iniciar(async () => {
       const r = await definirAdmin(id, admin);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
       router.refresh();
     });
   }
-  function removerUsuario(id: number, nome: string) {
-    if (!confirm(`Excluir a conta de ${nome}? Não dá para desfazer.`)) return;
+  async function removerUsuario(id: number, nome: string) {
+    if (!(await confirmar("Não dá para desfazer.", { titulo: `Excluir a conta de ${nome}?`, botao: "Excluir", perigo: true }))) return;
     iniciar(async () => {
       const r = await excluirUsuario(id);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
       router.refresh();
     });
   }
-  function novaSenha(id: number, nome: string) {
-    if (!confirm(`Gerar uma senha provisória para ${nome}? A senha atual deixa de funcionar e a pessoa sai do sistema.`)) return;
+  async function novaSenha(id: number, nome: string) {
+    if (!(await confirmar("A senha atual deixa de funcionar e a pessoa sai do sistema.", { titulo: `Gerar senha provisória para ${nome}?`, botao: "Gerar senha" }))) return;
     iniciar(async () => {
       const r = await redefinirSenha(id);
-      if (!r.ok) return alert(r.erro);
-      prompt(`Senha provisória de ${nome} (copie e repasse; ela não aparece de novo):`, r.senha);
+      if (!r.ok) return avisar(r.erro, "erro");
+      await mostrarTexto(`Senha provisória de ${nome}`, "Copie e repasse para a pessoa. Ela não aparece de novo.", r.senha!);
     });
   }
 
@@ -51,7 +52,7 @@ export default function TelaUsuarios({ usuarios, eu }: { usuarios: UsuarioVM[]; 
         <h3 className="font-bold text-[#1A2332]">Usuários</h3>
         <p className="text-xs text-gray-500">Contas criadas na tela de login ficam aguardando aprovação até um administrador liberar aqui.</p>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="p-4 cartao">
         <ul className="divide-y divide-gray-200 text-sm">
           {usuarios.map((u) => {
             const souEu = u.id === eu.id;
@@ -73,22 +74,22 @@ export default function TelaUsuarios({ usuarios, eu }: { usuarios: UsuarioVM[]; 
                     </span>
                   )}
                   {!souEu && (u.ativo ? (
-                    <button onClick={() => mudarAcesso(u.id, false, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#F39200]">Desativar</button>
+                    <button onClick={() => mudarAcesso(u.id, false, u.nome)} disabled={pendente} className="btn btn-secundario btn-sm">Desativar</button>
                   ) : (
-                    <button onClick={() => mudarAcesso(u.id, true, u.nome)} disabled={pendente} className="px-3 py-1.5 bg-[#F39200] text-white rounded-lg text-xs font-bold">Aprovar</button>
+                    <button onClick={() => mudarAcesso(u.id, true, u.nome)} disabled={pendente} className="btn btn-principal btn-sm">Aprovar</button>
                   ))}
                   {!souEu && u.ativo && (
-                    <button onClick={() => mudarPerfil(u.id, !u.admin, u.nome)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
+                    <button onClick={() => mudarPerfil(u.id, !u.admin, u.nome)} disabled={pendente} className="btn btn-secundario btn-sm">
                       {u.admin ? "Remover admin" : "Tornar admin"}
                     </button>
                   )}
                   {!souEu && u.ativo && (
-                    <button onClick={() => novaSenha(u.id, u.nome)} disabled={pendente} title="Gerar senha provisória" className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#1A2332]">
+                    <button onClick={() => novaSenha(u.id, u.nome)} disabled={pendente} title="Gerar senha provisória" className="btn btn-secundario btn-sm">
                       <i className="fa-solid fa-key mr-1"></i>Redefinir senha
                     </button>
                   )}
                   {!souEu && (
-                    <button onClick={() => removerUsuario(u.id, u.nome)} disabled={pendente} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                    <button onClick={() => removerUsuario(u.id, u.nome)} disabled={pendente} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
                   )}
                 </div>
               </li>

@@ -1,11 +1,98 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------- identidade
+   Azul #1A2332 e laranja #F39200 são as cores da Unisapiens. Texto e botões com
+   texto branco usam o laranja mais escuro (#C2410C / #B45309) para ter contraste. */
+:root {
+  --saga-azul: #1a2332;
+  --saga-laranja: #f39200;
+  --saga-laranja-escuro: #c2410c;
+  --saga-fundo: #f4f6f9;
+  --saga-superficie: #ffffff;
+  --saga-campo: #f1f3f6;
+  --saga-borda: #d1d5db;
+  --saga-titulo: #1a2332;
+  --saga-texto: #1f2937;
+  --saga-cabecalho-tabela: #f4f6f9;
+  --saga-degrade: linear-gradient(90deg, #c2410c, #1a2332);
+}
+
+body {
+  font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer components {
+  /* Botões em pílula, como o da tela de login */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 800;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    transition: filter 0.15s, background-color 0.15s, border-color 0.15s;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 0.4rem 0.9rem; font-size: 0.75rem; }
+  .btn-principal { background: var(--saga-degrade); color: #fff; letter-spacing: 0.03em; box-shadow: 0 6px 16px rgb(194 65 12 / 0.25); }
+  .btn-principal:not(:disabled):hover { filter: brightness(1.12); }
+  .btn-escuro { background: var(--saga-azul); color: #fff; }
+  .btn-escuro:not(:disabled):hover { filter: brightness(1.3); }
+  .btn-secundario { background: var(--saga-superficie); color: var(--saga-titulo); border: 1.5px solid var(--saga-borda); }
+  .btn-secundario:not(:disabled):hover { border-color: var(--saga-laranja); }
+  .btn-destaque { background: var(--saga-superficie); color: #9a3412; border: 1.5px solid var(--saga-laranja); }
+  .btn-perigo { background: transparent; color: #b91c1c; }
+  .btn-perigo:not(:disabled):hover { background: rgb(220 38 38 / 0.08); }
+  .btn-vermelho { background: #b91c1c; color: #fff; }
+  .btn-icone { width: 2.25rem; height: 2.25rem; padding: 0; background: var(--saga-campo); color: var(--saga-texto); }
+  .btn-icone:not(:disabled):hover { color: var(--saga-laranja-escuro); }
+
+  /* Campos cinza sem borda, como os do login; anel laranja no foco */
+  .campo {
+    width: 100%;
+    background: var(--saga-campo);
+    color: var(--saga-texto);
+    border: 2px solid transparent;
+    border-radius: 14px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  }
+  .campo:focus, .campo:focus-within {
+    background: var(--saga-superficie);
+    border-color: var(--saga-laranja);
+    box-shadow: 0 0 0 4px rgb(243 146 0 / 0.15);
+  }
+  .campo-sm { padding: 0.45rem 0.75rem; }
+
+  /* Cartões e janelas */
+  .cartao { background: var(--saga-superficie); border-radius: 20px; box-shadow: 0 1px 2px rgb(26 35 50 / 0.06), 0 8px 24px rgb(26 35 50 / 0.05); }
+  .janela { position: relative; overflow: hidden; background: var(--saga-superficie); border-radius: 24px; box-shadow: 0 30px 80px rgb(15 23 42 / 0.35); }
+  .janela::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: linear-gradient(90deg, #f39200, #c2410c 55%, #1a2332); }
+
+  /* Cabeçalho de tabela claro, texto azul institucional */
+  .tabela-cab { background: var(--saga-cabecalho-tabela); color: var(--saga-titulo); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+}
+
 /* Tema escuro do sistema (botão lua/sol no cabeçalho). As utilidades do Tailwind leem as cores de
    variáveis CSS: invertendo a escala de cinza, fundo claro vira escuro e texto escuro vira claro.
    Vale só dentro de .saga-app (a tela de login fica como está) e nunca na impressão. */
 @media screen {
   :root[data-tema="escuro"] .saga-app {
     color-scheme: dark;
+    --saga-fundo: #0f172a;
+    --saga-superficie: #1e293b;
+    --saga-campo: #0f172a;
+    --saga-borda: #475569;
+    --saga-titulo: #f1f5f9;
+    --saga-texto: #e5e7eb;
+    --saga-cabecalho-tabela: #223047;
     --color-gray-50: #172033;
     --color-gray-100: #223047;
     --color-gray-200: #334155;
@@ -27,6 +114,8 @@
     --color-green-200: rgb(22 163 74 / 0.4);
     --color-green-700: #86efac;
     --color-green-800: #bbf7d0;
+    --color-emerald-50: rgb(16 185 129 / 0.16);
+    --color-emerald-700: #6ee7b7;
     --color-yellow-50: rgb(202 138 4 / 0.16);
     --color-yellow-100: rgb(202 138 4 / 0.24);
     --color-yellow-200: rgb(202 138 4 / 0.4);
@@ -41,12 +130,15 @@
     --color-blue-700: #bfdbfe;
     --color-purple-500: #c084fc;
     --color-teal-500: #2dd4bf;
-    background: #0f172a;
+    background: var(--saga-fundo);
   }
-  :root[data-tema="escuro"] .saga-app .bg-white { background-color: #1e293b; }
-  :root[data-tema="escuro"] .saga-app .bg-\[\#F4F6F9\] { background-color: #0f172a; }
-  :root[data-tema="escuro"] .saga-app .text-\[\#1A2332\] { color: #f1f5f9; }
-  :root[data-tema="escuro"] .saga-app input,
+  :root[data-tema="escuro"] .saga-app .bg-white { background-color: var(--saga-superficie); }
+  :root[data-tema="escuro"] .saga-app .bg-\[\#F4F6F9\] { background-color: var(--saga-fundo); }
+  :root[data-tema="escuro"] .saga-app .text-\[\#1A2332\] { color: var(--saga-titulo); }
+  :root[data-tema="escuro"] .saga-app .text-\[\#B45309\] { color: #f7a428; }
+  :root[data-tema="escuro"] .saga-app .bg-\[\#FFF4E5\] { background-color: rgb(243 146 0 / 0.14); }
+  :root[data-tema="escuro"] .saga-app .btn-destaque { color: #fdba74; }
+  :root[data-tema="escuro"] .saga-app input:not(.campo *),
   :root[data-tema="escuro"] .saga-app select,
-  :root[data-tema="escuro"] .saga-app textarea { background-color: #0f172a; color: #e5e7eb; }
+  :root[data-tema="escuro"] .saga-app textarea { color: var(--saga-texto); }
 }

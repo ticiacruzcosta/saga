@@ -26,25 +26,25 @@ import TelaAtividades from "./telas/TelaAtividades";
 import TelaCalendario from "./telas/TelaCalendario";
 import TelaIndicadores from "./telas/TelaIndicadores";
 import ModalSenha from "./ModalSenha";
+import Avisos, { avisar, confirmar } from "./avisos";
 import type {
   DadosSaga, OfertaInput, PlanoResolucaoVM, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
 } from "@/lib/tipos";
 
-const TITULOS: Record<string, string> = {
-  dashboard: "HORÁRIO DO DIA",
-  gerador: "MATRIZ DE OFERTA ACADÊMICA",
-  "horario-semana": "QUADRO GERAL DA SEMANA",
-  importar: "IMPORTAÇÃO DE PLANILHA",
-  historico: "HISTÓRICO DE DISPAROS",
-  turmas: "CADASTRO DE TURMAS",
-  professores: "CORPO DOCENTE",
-  salas: "CADASTRO DE SALAS E LABS",
-  disciplinas: "CADASTRO DE OFERTAS",
-  whatsapp: "BOT WHATSAPP",
-  usuarios: "USUÁRIOS DO SISTEMA",
-  indicadores: "INDICADORES DO SEMESTRE",
-  calendario: "CALENDÁRIO LETIVO",
-  atividades: "ATIVIDADES E BACKUP",
+const TITULOS: Record<string, [string, string]> = {
+  gerador: ["Grade do semestre", "Oferta completa, conflitos e realocação"],
+  "horario-semana": ["Horário da semana", "Quadro de segunda a sábado"],
+  importar: ["Importar planilha", "Traga a oferta do Excel para o sistema"],
+  historico: ["Histórico de avisos", "Mensagens geradas para os grupos de WhatsApp"],
+  turmas: ["Cursos e turmas", "Turmas de alunos, quantidade e grupo de WhatsApp"],
+  professores: ["Professores", "Corpo docente e dias em que não podem dar aula"],
+  salas: ["Salas e laboratórios", "Espaços, capacidade e localização"],
+  disciplinas: ["Ofertas e disciplinas", "Todas as aulas do semestre aberto"],
+  whatsapp: ["Status do bot", "Envio automático de avisos"],
+  usuarios: ["Usuários", "Contas de acesso, aprovação e perfis"],
+  indicadores: ["Indicadores", "Números do semestre, carga horária e uso das salas"],
+  calendario: ["Calendário letivo", "Período de aulas, feriados e recessos"],
+  atividades: ["Atividades e backup", "Quem fez o quê, desfazer e cópia do banco"],
 };
 
 const FORM_VAZIO = {
@@ -52,14 +52,16 @@ const FORM_VAZIO = {
   alunos: "", reqespaco: "Laboratório/Prático", lockSala: "", rodizio: "Não", inicio: "", fim: "",
 };
 
+/** Selo de status: sempre ponto + palavra (nunca só a cor). */
 function Selo({ tipo }: { tipo: "ok" | "erro" | "confirmar" }) {
-  const cls =
-    tipo === "ok" ? "bg-green-100 text-green-800"
-    : tipo === "erro" ? "bg-red-100 text-red-800"
-    : "bg-yellow-100 text-yellow-800";
+  const [fundo, ponto, texto] =
+    tipo === "ok" ? ["bg-emerald-50 text-emerald-700", "bg-emerald-500", "OK"]
+    : tipo === "erro" ? ["bg-red-50 text-red-700", "bg-red-600", "Conflito"]
+    : ["bg-yellow-50 text-yellow-800", "bg-amber-500", "Confirmar"];
   return (
-    <span className={`${cls} text-xs px-2.5 py-1 rounded-full font-bold`}>
-      {tipo === "ok" ? "OK" : tipo === "erro" ? "Conflito" : "Confirmar"}
+    <span className={`${fundo} inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-extrabold`}>
+      <span aria-hidden="true" className={`w-2 h-2 rounded-full ${ponto}`}></span>
+      {texto}
     </span>
   );
 }
@@ -128,8 +130,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const [gerSubstituir, setGerSubstituir] = useState(false);
   const [geracao, setGeracao] = useState<ResultadoGeracao | null>(null);
 
-  const fechar = () => {
-    if (sujo && !confirm("Há alterações não salvas nesta janela. Descartar?")) return;
+  const fechar = async () => {
+    if (sujo && !(await confirmar("As alterações feitas nesta janela ainda não foram salvas.", { titulo: "Descartar alterações?", botao: "Descartar", perigo: true }))) return;
     setModal("");
   };
   useEffect(() => setSujo(false), [modal]);
@@ -210,10 +212,11 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     return () => clearInterval(timer);
   }, [router]);
 
-  const titulo =
+  const dataExtensa = new Date(`${dataVer}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const [titulo, subtitulo] =
     tab === "dashboard"
-      ? `HORÁRIO DO DIA: ${nomeDiaVer.toUpperCase()}, ${diaMes(dataVer)}`
-      : TITULOS[tab] ?? "FACULDADE UNISAPIENS";
+      ? ["Horário do dia", `${dataExtensa.charAt(0).toUpperCase()}${dataExtensa.slice(1)} · Semestre ${dados.oferta}`]
+      : TITULOS[tab] ?? ["Faculdade Unisapiens", ""];
 
   // ---------------------------------------------------------------- dados derivados
   const dashboard = useMemo(() => {
@@ -275,12 +278,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     iniciar(async () => {
       const r = await cadastrarOferta(entrada);
       if (r.ok) {
-        alert(`${editAulaId ? "Oferta atualizada" : "Oferta cadastrada"}: ${r.resumo}`);
+        avisar(`${editAulaId ? "Oferta atualizada" : "Oferta cadastrada"}: ${r.resumo}`);
         setModal("");
         router.refresh();
       } else {
         setConf(r);
-        if (r.erro) alert(r.erro);
+        if (r.erro) avisar(r.erro, "erro");
       }
     });
   }
@@ -301,8 +304,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     if (!sugestao?.turmaId || !o) return;
     iniciar(async () => {
       const r = await aplicarRealocacao({ turmaId: sugestao.turmaId!, dia: o.dia, inicio: o.inicio, fim: o.fim, ambienteId: o.ambienteId, avisar: realocAvisar });
-      if (!r.ok) return alert(r.erro);
-      alert(`Aula realocada: ${r.resumo}`);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar(`Aula realocada: ${r.resumo}`);
       setModal("");
       router.refresh();
     });
@@ -321,10 +324,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     const itens = plano.movimentos
       .filter((m) => marcados.has(m.turmaId))
       .map((m) => ({ turmaId: m.turmaId, dia: m.opcao.dia, inicio: m.opcao.inicio, fim: m.opcao.fim, ambienteId: m.opcao.ambienteId, avisar: realocAvisar }));
-    if (itens.length === 0) return alert("Marque pelo menos uma mudança.");
+    if (itens.length === 0) return avisar("Marque pelo menos uma mudança.", "erro");
     iniciar(async () => {
       const r = await aplicarResolucao(itens);
-      alert(`${r.aplicadas} aula(s) realocada(s).${r.falhas.length ? `\n\nNão aplicadas:\n${r.falhas.join("\n")}` : ""}`);
+      avisar(`${r.aplicadas} aula(s) realocada(s).${r.falhas.length ? `\n\nNão aplicadas:\n${r.falhas.join("\n")}` : ""}`);
       setModal("");
       router.refresh();
     });
@@ -337,11 +340,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       router.refresh();
     });
   }
-  function publicar(codigo: string) {
-    if (!confirm(`Publicar ${codigo}? Ele passa a ser o semestre que vale para todos (o atual é arquivado).`)) return;
+  async function publicar(codigo: string) {
+    if (!(await confirmar("Ele passa a ser o semestre que vale para todos. O publicado atual é arquivado.", { titulo: `Publicar ${codigo}?`, botao: "Publicar" }))) return;
     iniciar(async () => {
       const r = await publicarOferta(codigo);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar(`Semestre ${codigo} publicado`);
       router.refresh();
     });
   }
@@ -376,30 +380,33 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     setModal(tipo);
   }
   function salvarSala() {
-    if (!sala.nome) return alert("Informe a identificação!");
+    if (!sala.nome) return avisar("Informe a identificação!", "erro");
     iniciar(async () => {
       const r = await criarSala({ id: editId ?? undefined, nome: sala.nome, tipo: sala.tipo, cap: sala.cap ? Number(sala.cap) : null, predio: sala.predio });
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar(`Sala ${sala.nome.trim().toUpperCase()} salva`);
       setSala({ nome: "", tipo: "Laboratório/Prático", cap: "", predio: "" });
       setModal("");
       router.refresh();
     });
   }
   function salvarProfessor() {
-    if (!prof.nome) return alert("Informe o nome!");
+    if (!prof.nome) return avisar("Informe o nome!", "erro");
     iniciar(async () => {
       const r = await criarProfessor({ id: editId ?? undefined, ...prof });
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Professor salvo");
       setProf({ nome: "", email: "", dias: [] });
       setModal("");
       router.refresh();
     });
   }
   function salvarTurma() {
-    if (!turma.nome) return alert("Informe a turma!");
+    if (!turma.nome) return avisar("Informe a turma!", "erro");
     iniciar(async () => {
       const r = await criarGrupo({ id: editId ?? undefined, nome: turma.nome, alunos: turma.alunos ? Number(turma.alunos) : null, wa: turma.wa });
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Turma salva");
       setTurma({ nome: "", alunos: "", wa: "" });
       setModal("");
       router.refresh();
@@ -409,10 +416,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   function excluir(tipo: TipoCadastro, id: number) {
     iniciar(async () => {
       const p = await previaExclusao(tipo, id);
-      if (!p.pode) return alert(p.mensagem);
-      if (!confirm(p.mensagem)) return;
+      if (!p.pode) return avisar(p.mensagem, "erro");
+      const [titulo, ...resto] = p.mensagem.split("\n\n");
+      if (!(await confirmar(resto.join("\n\n") || "Você pode desfazer em Atividades por 24 horas.", { titulo, botao: "Excluir", perigo: true }))) return;
       const r = await excluirCadastro(tipo, id);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Excluído. Dá para desfazer em Atividades por 24 horas.");
       setModal("");
       router.refresh();
     });
@@ -460,8 +469,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     if (!waTurma) return;
     iniciar(async () => {
       const r = await enviarAviso({ turmaId: waTurma.id, mensagem: textoAviso(waTurma) });
-      if (!r.ok) return alert(r.erro);
-      alert("Aviso registrado! O bot envia para o grupo da turma.");
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Aviso registrado no histórico (pendente de envio)");
       setModal("");
       router.refresh();
     });
@@ -470,21 +479,22 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const contasPendentes = dados.usuarios.filter((u) => !u.ativo).length;
 
   // ---------------------------------------------------------------- peças repetidas
-  const navBtn = (id: string, icone: string, nome: string, iconeCls = "text-gray-400", nomeCls = "", alerta = 0) => (
+  const navBtn = (id: string, icone: string, nome: string, alerta = 0) => (
     <li>
       <button
         onClick={() => setTab(id)}
         title={nome}
-        className={`nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-          tab === id ? "bg-[#F39200] text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+        aria-current={tab === id ? "page" : undefined}
+        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-left text-sm transition-colors ${
+          tab === id ? "bg-[#F39200]/15 text-[#F7A428] font-extrabold" : "text-slate-300 font-semibold hover:bg-white/5 hover:text-white"
         }`}
       >
         <span className="relative shrink-0">
-          <i className={`${icone} w-5 text-center ${tab === id ? "" : iconeCls}`}></i>
+          <i className={`${icone} w-5 text-center`}></i>
           {/* menu recolhido: só um ponto vermelho */}
           {alerta > 0 && !sidebarOpen && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500"></span>}
         </span>
-        <span className={`${sidebarOpen ? "" : "hidden"} truncate ${nomeCls}`}>{nome}</span>
+        <span className={`${sidebarOpen ? "" : "hidden"} truncate`}>{nome}</span>
         {alerta > 0 && sidebarOpen && (
           <span title={`${alerta} aviso(s) pendente(s)`} className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center">
             {alerta}
@@ -494,100 +504,113 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     </li>
   );
 
-  const inp = "w-full border border-gray-200 rounded-lg p-2.5";
-  const filtroSel = "w-full border border-gray-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-[#F39200]";
-  const cancelar = "px-4 py-2 border border-gray-200 rounded-lg text-sm";
-  const salvar = "px-4 py-2 bg-[#F39200] text-white font-bold rounded-lg text-sm";
+  const inp = "campo";
+  const filtroSel = "campo campo-sm";
+  const cancelar = "btn btn-secundario";
+  const salvar = "btn btn-principal";
 
   return (
     <div
       className="saga-app bg-[#F4F6F9] text-gray-800 flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible print:bg-white"
       onChangeCapture={() => modal && setSujo(true)}
-      style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"' }}
     >
-      <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#9ca3af} @page{size:landscape;margin:10mm}`}</style>
+      <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#6b7280} @page{size:landscape;margin:10mm}`}</style>
 
-      <aside className={`print:hidden ${sidebarOpen ? "w-64" : "w-16"} bg-[#1A2332] text-white flex flex-col justify-between shrink-0 shadow-lg transition-all duration-300 relative z-20`}>
+      <aside className={`print:hidden ${sidebarOpen ? "w-64" : "w-[4.5rem]"} bg-[#1A2332] text-white flex flex-col justify-between shrink-0 transition-all duration-300 relative z-20 overflow-y-auto`}>
         <div>
-          <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
-            <div className={`${sidebarOpen ? "" : "hidden"} flex items-center gap-3`}>
-              <div className="bg-[#F39200] text-white p-2 rounded-xl font-bold text-lg shadow-md shrink-0">US</div>
-              <div className="overflow-hidden">
-                <h1 className="font-bold tracking-wide text-[#F39200] leading-tight text-xs">FACULDADE</h1>
-                <h2 className="font-black text-sm text-white tracking-wider leading-none">UNISAPIENS</h2>
-                <span className="text-[9px] text-gray-400 font-mono tracking-widest block mt-0.5">SAGA v2.8</span>
+          <div className="px-4 pt-5 pb-4 mx-2 border-b border-white/10 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-[14px] bg-white text-[#B45309] flex items-center justify-center font-black text-lg shrink-0">US</div>
+              <div className={`${sidebarOpen ? "" : "hidden"} flex flex-col leading-tight min-w-0`}>
+                <span className="text-[11px] font-extrabold tracking-[0.12em] text-[#F7A428]">FACULDADE</span>
+                <span className="text-[17px] font-black tracking-wide">UNISAPIENS</span>
+                <span className="text-[10px] tracking-[0.25em] text-slate-400 mt-0.5">SAGA</span>
               </div>
             </div>
-            <button onClick={() => setSidebarOpen((v) => !v)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition" title="Alternar Menu">
-              <i className="fa-solid fa-bars-staggered"></i>
+            <button onClick={() => setSidebarOpen((v) => !v)} className={`${sidebarOpen ? "" : "hidden"} w-8 h-8 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition shrink-0`} title="Recolher menu" aria-label="Recolher menu">
+              <i className="fa-solid fa-angles-left text-xs"></i>
             </button>
           </div>
 
-          <nav className="p-3 space-y-5 text-sm">
+          <nav aria-label="Menu principal" className="p-3 space-y-5 text-sm">
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3`}>Operacional</p>
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Operacional</p>
               <ul className="space-y-1">
-                {navBtn("dashboard", "fa-solid fa-gauge", "Dashboard (Hoje)")}
-                {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre", "text-[#F39200]", "font-bold text-white")}
+                {navBtn("dashboard", "fa-solid fa-gauge", "Dashboard")}
+                {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre")}
                 {navBtn("indicadores", "fa-solid fa-chart-column", "Indicadores")}
                 {navBtn("horario-semana", "fa-solid fa-calendar-week", "Horário da Semana")}
                 {navBtn("importar", "fa-solid fa-file-import", "Importar Planilha")}
-                {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos", undefined, "", avisosPendentes)}
+                {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos", avisosPendentes)}
               </ul>
             </div>
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3`}>Cadastros Base</p>
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Cadastros</p>
               <ul className="space-y-1">
-                {navBtn("turmas", "fa-solid fa-people-group", "Cursos & Turmas")}
+                {navBtn("turmas", "fa-solid fa-people-group", "Cursos e Turmas")}
                 {navBtn("professores", "fa-solid fa-chalkboard-user", "Professores")}
-                {navBtn("salas", "fa-solid fa-door-open", "Salas & Laboratórios")}
-                {navBtn("disciplinas", "fa-solid fa-book", "Ofertas & Disciplinas")}
+                {navBtn("salas", "fa-solid fa-door-open", "Salas e Laboratórios")}
+                {navBtn("disciplinas", "fa-solid fa-book", "Ofertas e Disciplinas")}
                 {navBtn("calendario", "fa-solid fa-calendar-xmark", "Calendário Letivo")}
               </ul>
             </div>
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3`}>Sistema</p>
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Sistema</p>
               <ul className="space-y-1">
-                {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", undefined, "", contasPendentes)}
+                {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", contasPendentes)}
                 {usuario.admin && navBtn("atividades", "fa-solid fa-list-check", "Atividades e Backup")}
-                {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot", "text-gray-400")}
+                {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot")}
               </ul>
             </div>
           </nav>
         </div>
 
-        <div className="p-3 border-t border-gray-700/50 flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-full bg-[#F39200] text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="mx-2 px-2 pt-3.5 pb-4 border-t border-white/10 flex items-center gap-2.5 overflow-hidden">
+          <div title={`${usuario.nome} · ${usuario.email}`} className="w-9 h-9 rounded-full bg-gradient-to-br from-[#F39200] to-[#C2410C] flex items-center justify-center font-black text-sm shrink-0">
             {usuario.nome.charAt(0).toUpperCase()}
           </div>
-          <div className={`${sidebarOpen ? "" : "hidden"} overflow-hidden flex-1`}>
-            <p className="text-xs font-medium text-white truncate">{usuario.nome}</p>
-            <p className="text-[10px] text-gray-400 truncate">{usuario.email}</p>
+          <div className={`${sidebarOpen ? "" : "hidden"} overflow-hidden flex-1 leading-tight`}>
+            <p className="text-[13px] font-extrabold truncate">{usuario.nome}</p>
+            <p className="text-[11px] text-slate-400 truncate">{usuario.admin ? "Administrador" : "Coordenação"}</p>
           </div>
-          <button onClick={() => setTrocandoSenha(true)} title="Trocar senha" className={`${sidebarOpen ? "" : "hidden"} text-gray-400 hover:text-white p-1.5 shrink-0`}>
-            <i className="fa-solid fa-key"></i>
+          <button onClick={() => setTrocandoSenha(true)} title="Trocar senha" aria-label="Trocar senha" className={`${sidebarOpen ? "" : "hidden"} w-8 h-8 rounded-full bg-white/5 text-slate-300 hover:text-white shrink-0`}>
+            <i className="fa-solid fa-key text-xs"></i>
           </button>
-          <button onClick={() => sair()} title="Sair" className={`${sidebarOpen ? "" : "hidden"} text-gray-400 hover:text-white p-1.5 shrink-0`}>
-            <i className="fa-solid fa-right-from-bracket"></i>
+          <button onClick={() => sair()} title="Sair" aria-label="Sair" className={`${sidebarOpen ? "" : "hidden"} w-8 h-8 rounded-full bg-white/5 text-slate-300 hover:text-white shrink-0`}>
+            <i className="fa-solid fa-right-from-bracket text-xs"></i>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto print:overflow-visible">
-        <header className="print:hidden bg-white border-b border-gray-200 px-4 md:px-8 py-4 flex justify-between items-center gap-3 sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen((v) => !v)} className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition mr-1" title="Alternar Menu">
-              <i className="fa-solid fa-bars"></i>
-            </button>
-            <h2 className="text-base md:text-xl font-bold text-[#1A2332]">{titulo}</h2>
+        <header className="print:hidden bg-white border-b border-gray-200 px-4 md:px-8 py-4 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            {!sidebarOpen && (
+              <button onClick={() => setSidebarOpen(true)} className="btn btn-icone shrink-0" title="Abrir menu" aria-label="Abrir menu">
+                <i className="fa-solid fa-bars"></i>
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">{titulo}</h1>
+              {subtitulo && <p className="text-sm text-gray-600 truncate">{subtitulo}</p>}
+            </div>
           </div>
-          <button
-            onClick={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
-            title={tema === "claro" ? "Tema escuro" : "Tema claro"}
-            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition shrink-0"
-          >
-            <i className={`fa-solid ${tema === "claro" ? "fa-moon" : "fa-sun"}`}></i>
-          </button>
+          <div className="flex items-center gap-2.5">
+            {dados.oferta !== "—" && (
+              <span className={`hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-extrabold ${dados.ofertaStatus === "PUBLICADA" ? "bg-emerald-50 text-emerald-700" : "bg-yellow-50 text-yellow-800"}`}>
+                <span aria-hidden="true" className={`w-2 h-2 rounded-full ${dados.ofertaStatus === "PUBLICADA" ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+                {dados.oferta} {dados.ofertaStatus === "PUBLICADA" ? "publicada" : dados.ofertaStatus === "RASCUNHO" ? "rascunho" : "arquivada"}
+              </span>
+            )}
+            <button
+              onClick={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
+              title={tema === "claro" ? "Tema escuro" : "Tema claro"}
+              aria-label={tema === "claro" ? "Tema escuro" : "Tema claro"}
+              className="w-10 h-10 rounded-full border border-gray-200 bg-white text-gray-600 hover:text-[#B45309] transition shrink-0"
+            >
+              <i className={`fa-solid ${tema === "claro" ? "fa-moon" : "fa-sun"}`}></i>
+            </button>
+          </div>
         </header>
 
         <div className="p-4 md:p-8">
@@ -606,17 +629,37 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {/* 1. DASHBOARD (HOJE) */}
           {tab === "dashboard" && (
             <section className="space-y-6">
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex gap-4 items-center justify-between">
+              <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-7 min-h-[150px] flex flex-col justify-center gap-3.5 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90" />
+                <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35" />
+                <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85" />
+                <div className="relative max-w-xl">
+                  <h2 className="text-2xl md:text-[26px] font-black">Olá, {usuario.nome.split(" ")[0]}</h2>
+                  <p className="text-[15px] text-white/90">
+                    {motivoSemAula
+                      ? `Sem aula neste dia: ${motivoSemAula}.`
+                      : `${ehHoje ? "Hoje tem" : "Neste dia há"} ${dashboard.length} aula(s) em ${new Set(dashboard.map((t) => t.turma)).size} turma(s). ${dados.totalConflitos ? `${dados.totalConflitos} conflito(s) na grade.` : "Nenhum conflito na grade."}`}
+                  </p>
+                </div>
+                {!motivoSemAula && diaVer && (
+                  <div className="relative flex flex-wrap gap-2">
+                    <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dashboard.length} aula(s)</span>
+                    {(() => { const o = ocupacao(dataVer); return o ? <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{o.livres} de {o.total} salas livres</span> : null; })()}
+                    {ehHoje && <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dados.turmas.filter((t) => t.alteradaHoje).length} troca(s) registrada(s) hoje</span>}
+                  </div>
+                )}
+              </div>
+              <div className="p-4 flex gap-4 items-center justify-between cartao">
                 <div className="relative flex-1 max-w-md">
                   <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
                   <input
                     type="text" value={dashBusca} onChange={(e) => setDashBusca(e.target.value)} data-busca
                     placeholder="Filtrar por turma, professor ou sala...  ( / )"
-                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F39200]"
+                    className="campo campo-sm w-full pl-9"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => andarDia(-1)} title="Dia anterior" className="w-8 h-8 rounded-lg border border-gray-200 text-gray-600 hover:text-[#F39200] hover:border-[#F39200]">
+                  <button onClick={() => andarDia(-1)} title="Dia anterior" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200]">
                     <i className="fa-solid fa-chevron-left"></i>
                   </button>
                   <div className="relative">
@@ -625,12 +668,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       onClick={() => setCalendarioAberto((v) => !v)}
                       onContextMenu={(e) => { e.preventDefault(); setCalendarioAberto(true); }}
                       title="Abrir calendário"
-                      className="text-center min-w-[10rem] px-2 py-1 rounded-lg hover:bg-orange-50 select-none"
+                      className="text-center min-w-[10rem] px-5 py-1.5 rounded-full bg-[#FFF4E5] hover:brightness-95 select-none"
                     >
                       <div className="text-sm font-bold text-[#1A2332]">
-                        <i className="fa-regular fa-calendar text-[#F39200] mr-1"></i>{nomeDiaVer}, {diaMes(dataVer)}
+                        <i className="fa-regular fa-calendar text-[#B45309] mr-1"></i>{nomeDiaVer}, {diaMes(dataVer)}
                       </div>
-                      <div className={`text-[11px] font-semibold ${ehHoje ? "text-green-600" : "text-[#F39200]"}`}>
+                      <div className={`text-[11px] font-semibold ${ehHoje ? "text-green-600" : "text-[#B45309]"}`}>
                         {ehHoje ? (diaVer ? "Hoje" : "Hoje (sem aulas)") : ehAmanha ? "Amanhã" : dataVer < dados.dataHoje ? "Já passou" : "Outro dia"}
                       </div>
                     </button>
@@ -638,19 +681,19 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} semAula={semAula} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
                     )}
                   </div>
-                  <button onClick={() => andarDia(1)} title="Próximo dia" className="w-8 h-8 rounded-lg border border-gray-200 text-gray-600 hover:text-[#F39200] hover:border-[#F39200]">
+                  <button onClick={() => andarDia(1)} title="Próximo dia" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200]">
                     <i className="fa-solid fa-chevron-right"></i>
                   </button>
                   {dataEscolhida && (
-                    <button onClick={() => setDataEscolhida(null)} className="text-xs font-bold text-[#F39200] hover:underline ml-1">Voltar para hoje</button>
+                    <button onClick={() => setDataEscolhida(null)} className="text-xs font-bold text-[#B45309] hover:underline ml-1">Voltar para hoje</button>
                   )}
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+              <div className="overflow-x-auto cartao">
                 <table className="w-full text-left border-collapse min-w-[760px]">
                   <thead>
-                    <tr className="bg-[#1A2332] text-white text-xs uppercase tracking-wider">
+                    <tr className="tabela-cab">
                       <th className="p-4">Turma / Disciplina / Professor</th>
                       <th className="p-4">Formato</th>
                       <th className="p-4">Sala / Laboratório</th>
@@ -662,7 +705,14 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   <tbody className="divide-y divide-gray-200 text-sm">
                     {dashboard.length === 0 && (
                       <tr><td colSpan={6} className="p-8 text-center text-gray-400">
-                        {motivoSemAula ? <><i className="fa-solid fa-umbrella-beach mr-2"></i>Sem aula: {motivoSemAula}</> : "Nenhuma aula neste dia."}
+                        <span className="flex flex-col items-center gap-2 py-4">
+                          <span aria-hidden="true" className="relative w-20 h-20">
+                            <span className="absolute left-2 -top-1 w-8 h-[4.4rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C]" />
+                            <span className="absolute left-10 top-4 w-6 h-[3.4rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-slate-600 to-[#1A2332]" />
+                          </span>
+                          <b className="text-base text-[#1A2332]">{motivoSemAula ? "Sem aula neste dia" : "Nenhuma aula neste dia"}</b>
+                          <span className="text-sm">{motivoSemAula ? `${motivoSemAula}. ` : ""}Use as setas para ver outro dia.</span>
+                        </span>
                       </td></tr>
                     )}
                     {dashboard.map((d) => (
@@ -673,19 +723,19 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                           {d.tambemAtende.length > 0 && <div className="text-xs text-blue-600">Também atende: {d.tambemAtende.join(", ")}</div>}
                         </td>
                         <td className="p-4"><span className="text-xs bg-gray-100 px-2 py-1 rounded font-semibold">{d.formato}</span></td>
-                        <td className="p-4 font-bold text-[#F39200]">
+                        <td className="p-4 font-bold text-[#B45309]">
                           {d.sala}
                           {d.alteradaHoje && <div className="text-[10px] font-semibold text-blue-600">alterada hoje</div>}
                         </td>
                         <td className="p-4 text-xs text-gray-500">{d.predio}</td>
                         <td className="p-4 text-center">
-                          <span className="bg-orange-100 text-[#F39200] text-xs px-2.5 py-1 rounded-full font-bold">{d.rodizio !== "Não" ? "Rodízio Ativo" : "Alocação Fixa"}</span>
+                          <span className="bg-orange-100 text-[#B45309] text-xs px-2.5 py-1 rounded-full font-bold">{d.rodizio !== "Não" ? "Rodízio Ativo" : "Alocação Fixa"}</span>
                         </td>
                         <td className="p-4 text-center">
                           <div className="flex justify-center gap-2">
                             {/* O lápis grava a troca para HOJE: só aparece quando o dia exibido é hoje */}
-                            {ehHoje && <button onClick={() => abrirEdicao(d)} className="p-2 text-gray-600 hover:text-[#F39200]"><i className="fa-solid fa-pen"></i></button>}
-                            <button onClick={() => abrirWhatsApp(d)} className="bg-[#F39200] text-white px-3 py-1.5 rounded-lg text-xs font-semibold"><i className="fa-brands fa-whatsapp"></i> Aviso</button>
+                            {ehHoje && <button onClick={() => abrirEdicao(d)} className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>}
+                            <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-brands fa-whatsapp"></i> Aviso</button>
                           </div>
                         </td>
                       </tr>
@@ -700,46 +750,46 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {tab === "gerador" && (
             <section className="space-y-5">
               <h2 className="hidden print:block text-lg font-bold">Oferta {dados.oferta} · UNISAPIENS</h2>
-              <div className="print:hidden bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4">
+              <div className="print:hidden p-5 space-y-4 cartao">
                 <div className="flex flex-wrap justify-between items-center gap-4 border-b border-gray-200 pb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-lg font-bold text-[#1A2332]">Matriz de Oferta Acadêmica</h3>
-                    <select value={dados.oferta} onChange={(e) => trocarOferta(e.target.value)} className="bg-gray-100 text-gray-700 font-mono text-xs px-2 py-1 rounded-md font-bold border-0">
+                    <select value={dados.oferta} onChange={(e) => trocarOferta(e.target.value)} className="campo campo-sm !w-auto font-mono text-xs font-extrabold">
                       {dados.ofertas.map((o) => <option key={o.codigo} value={o.codigo}>{o.codigo} · {o.status === "PUBLICADA" ? "publicada" : o.status === "RASCUNHO" ? "rascunho" : "arquivada"}</option>)}
                     </select>
                     {dados.oferta !== "—" && (
-                      <button onClick={abrirGerar} className="text-xs font-bold text-[#F39200] hover:underline flex items-center gap-1">
+                      <button onClick={abrirGerar} className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1">
                         <i className="fa-solid fa-forward"></i> Gerar {proximoCodigo(dados.oferta)}
                       </button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     {dados.totalConflitos === 0 ? (
-                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5">
+                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full font-extrabold flex items-center gap-1.5">
                         <i className="fa-solid fa-circle-check text-green-500"></i> 0 Conflitos Detectados
                       </span>
                     ) : (
-                      <span className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5">
+                      <span className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full font-extrabold flex items-center gap-1.5">
                         <i className="fa-solid fa-triangle-exclamation text-red-500"></i> {dados.totalConflitos} Conflitos Detectados
                       </span>
                     )}
                     {dados.totalConfirmar > 0 && (
-                      <span className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded-lg font-semibold">
+                      <span className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded-full font-extrabold">
                         {dados.totalConfirmar} para confirmar
                       </span>
                     )}
                     {dados.totalConflitos > 0 && (
-                      <button onClick={abrirResolverTodos} className="bg-[#F39200] hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                      <button onClick={abrirResolverTodos} className="btn btn-principal btn-sm">
                         <i className="fa-solid fa-wand-magic-sparkles"></i> Resolver Conflitos
                       </button>
                     )}
-                    <a href="/api/exportar" title="Planilha no formato da oferta (pode ser importada de volta)" className="border border-gray-200 text-gray-700 hover:border-[#F39200] px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                    <a href="/api/exportar" title="Planilha no formato da oferta (pode ser importada de volta)" className="btn btn-secundario btn-sm">
                       <i className="fa-solid fa-file-excel text-green-600"></i> Excel
                     </a>
-                    <button onClick={() => window.print()} title="Imprimir ou salvar como PDF" className="border border-gray-200 text-gray-700 hover:border-[#F39200] px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                    <button onClick={() => window.print()} title="Imprimir ou salvar como PDF" className="btn btn-secundario btn-sm">
                       <i className="fa-solid fa-file-pdf text-red-600"></i> PDF
                     </button>
-                    <button onClick={() => router.refresh()} title="Busca os dados de novo e reconfere os choques" className="bg-[#1A2332] hover:bg-[#111722] text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <button onClick={() => router.refresh()} title="Busca os dados de novo e reconfere os choques" className="btn btn-escuro btn-sm">
                       <i className="fa-solid fa-arrows-rotate"></i> Atualizar
                     </button>
                   </div>
@@ -778,10 +828,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+              <div className="overflow-x-auto cartao">
                 <table className="w-full text-left border-collapse text-sm min-w-[760px]">
                   <thead>
-                    <tr className="bg-[#1A2332] text-white text-xs uppercase tracking-wider">
+                    <tr className="tabela-cab">
                       <th className="p-3.5">Dia</th>
                       <th className="p-3.5">Turma / Curso</th>
                       <th className="p-3.5">Disciplina / Docente</th>
@@ -809,7 +859,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                             {d.consome && <div className="text-xs text-blue-600">assiste turma de outro curso</div>}
                           </td>
                           <td className="p-3.5"><span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{d.formato}</span></td>
-                          <td className="p-3.5 font-bold text-[#F39200]">
+                          <td className="p-3.5 font-bold text-[#B45309]">
                             {d.sala} <span className="text-xs font-normal text-gray-500">({d.reqespaco})</span>
                           </td>
                           <td className="p-3.5 text-center">
@@ -818,7 +868,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                               <div key={i} className="text-[10px] text-gray-500 text-left mt-1 max-w-xs">{c.mensagem}</div>
                             ))}
                             {d.conflitos.length > 0 && !d.consome && d.dia && (
-                              <button onClick={() => abrirRealocar(d.id)} className="mt-2 text-xs font-bold text-[#F39200] hover:underline flex items-center gap-1">
+                              <button onClick={() => abrirRealocar(d.id)} className="mt-2 text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1">
                                 <i className="fa-solid fa-right-left"></i> Realocar
                               </button>
                             )}
@@ -846,9 +896,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <section className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-[#1A2332]">Cursos & Turmas</h3>
-                <button onClick={() => abrirCadastro("turma")} className="bg-[#F39200] text-white px-4 py-2 rounded-lg text-sm font-bold"><i className="fa-solid fa-plus"></i> Nova Turma</button>
+                <button onClick={() => abrirCadastro("turma")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Nova Turma</button>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="p-4 cartao">
                 <ul className="divide-y divide-gray-200 text-sm">
                   {dados.grupos.map((t) => (
                     <li key={t.id} className="py-3 flex justify-between items-center">
@@ -856,7 +906,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                         <p className="font-bold text-gray-900">{t.nome}</p>
                         <p className="text-xs text-gray-500">Alunos: {t.alunos ?? "—"} | WA: {t.wa}</p>
                       </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("turma", t.id)} title="Editar" className="p-2 text-gray-500 hover:text-[#F39200]"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("turma", t.id)} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
+                      <span className="flex"><button onClick={() => abrirCadastro("turma", t.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("turma", t.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
                     </li>
                   ))}
                 </ul>
@@ -868,9 +918,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <section className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-[#1A2332]">Corpo Docente</h3>
-                <button onClick={() => abrirCadastro("professor")} className="bg-[#F39200] text-white px-4 py-2 rounded-lg text-sm font-bold"><i className="fa-solid fa-plus"></i> Novo Professor</button>
+                <button onClick={() => abrirCadastro("professor")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Novo Professor</button>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="p-4 cartao">
                 <ul className="divide-y divide-gray-200 text-sm">
                   {dados.professores.map((p) => (
                     <li key={p.id} className="py-2.5 flex justify-between items-center">
@@ -878,7 +928,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                         <span className="font-bold text-gray-900">{p.nome}</span>
                         <p className="text-xs text-gray-500">{p.email}</p>
                       </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("professor", p.id)} title="Editar" className="p-2 text-gray-500 hover:text-[#F39200]"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("professor", p.id)} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
+                      <span className="flex"><button onClick={() => abrirCadastro("professor", p.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("professor", p.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
                     </li>
                   ))}
                 </ul>
@@ -890,18 +940,18 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <section className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-[#1A2332]">Salas & Laboratórios</h3>
-                <button onClick={() => abrirCadastro("sala")} className="bg-[#F39200] text-white px-4 py-2 rounded-lg text-sm font-bold"><i className="fa-solid fa-plus"></i> Novo Espaço</button>
+                <button onClick={() => abrirCadastro("sala")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Novo Espaço</button>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="p-4 cartao">
                 <ul className="divide-y divide-gray-200 text-sm">
                   {dados.salas.map((s) => (
                     <li key={s.id} className="py-3 flex justify-between items-center">
                       <div>
-                        <span className="font-bold text-[#F39200]">{s.nome}</span>
+                        <span className="font-bold text-[#B45309]">{s.nome}</span>
                         <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded ml-2">{s.tipo}</span>
                         <p className="text-xs text-gray-500 mt-0.5">Capacidade: {s.cap ?? "—"} alunos | {s.predio}</p>
                       </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("sala", s.id)} title="Editar" className="p-2 text-gray-500 hover:text-[#F39200]"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("sala", s.id)} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
+                      <span className="flex"><button onClick={() => abrirCadastro("sala", s.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("sala", s.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
                     </li>
                   ))}
                 </ul>
@@ -913,9 +963,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <section className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-[#1A2332]">Ofertas & Disciplinas</h3>
-                <button onClick={abrirNovaOferta} className="bg-[#F39200] text-white px-4 py-2 rounded-lg text-sm font-bold"><i className="fa-solid fa-plus"></i> Cadastrar Oferta</button>
+                <button onClick={abrirNovaOferta} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Cadastrar Oferta</button>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="p-4 cartao">
                 <ul className="divide-y divide-gray-200 text-sm">
                   {[...dados.turmas].sort(porDiaHora).map((d) => (
                     <li key={d.id} className="py-3 flex justify-between items-center">
@@ -927,9 +977,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                         {d.consome ? (
                           <span className="text-xs text-blue-600 mr-1" title="Edite a aula principal (a do outro curso)">assiste outro curso</span>
                         ) : (
-                          <button onClick={() => abrirEdicaoAula(d)} title="Editar" className="p-2 text-gray-500 hover:text-[#F39200]"><i className="fa-solid fa-pen"></i></button>
+                          <button onClick={() => abrirEdicaoAula(d)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>
                         )}
-                        <button onClick={() => excluir("aula", d.id)} title="Excluir" className="p-2 text-gray-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
+                        <button onClick={() => excluir("aula", d.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
                       </span>
                     </li>
                   ))}
@@ -947,11 +997,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
         </div>
       </main>
 
+      <Avisos />
       {/* MODAIS */}
       {trocandoSenha && <ModalSenha onFechar={() => setTrocandoSenha(false)} />}
       {modal === "edit" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
             <h3 className="text-lg font-bold text-[#1A2332]">Alteração Pontual de Sala/Docente</h3>
             <div className="space-y-3 text-sm">
               <div>
@@ -979,7 +1030,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "sala" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
             <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Sala / Lab</h3>
             <div className="space-y-3 text-sm">
               <div><label className="block font-semibold mb-1">Identificação</label><input value={sala.nome} onChange={(e) => setSala({ ...sala, nome: e.target.value })} type="text" placeholder="Ex: LAB01, IRVINE" className={inp} /></div>
@@ -997,7 +1048,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              {editId && <button onClick={() => excluir("sala", editId)} disabled={pendente} className="mr-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
+              {editId && <button onClick={() => excluir("sala", editId)} disabled={pendente} className="btn btn-perigo mr-auto"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
               <button onClick={salvarSala} disabled={pendente} className={salvar}>Salvar Espaço</button>
             </div>
           </div>
@@ -1006,7 +1057,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "professor" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
             <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Professor</h3>
             <div className="space-y-3 text-sm">
               <div><label className="block font-semibold mb-1">Nome Completo</label><input value={prof.nome} onChange={(e) => setProf({ ...prof, nome: e.target.value })} type="text" placeholder="Ex: Prof. Anderson Seixas" className={inp} /></div>
@@ -1018,7 +1069,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     const banco = tela.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                     const marcado = prof.dias.includes(banco);
                     return (
-                      <label key={tela} className={`px-2.5 py-1 rounded-lg border text-xs cursor-pointer ${marcado ? "bg-red-50 border-red-300 text-red-700 font-semibold" : "border-gray-200 text-gray-600"}`}>
+                      <label key={tela} className={`px-2.5 py-1 rounded-[14px] border text-xs cursor-pointer ${marcado ? "bg-red-50 border-red-300 text-red-700 font-semibold" : "border-gray-200 text-gray-600"}`}>
                         <input
                           type="checkbox" className="hidden" checked={marcado}
                           onChange={() => setProf({ ...prof, dias: marcado ? prof.dias.filter((d) => d !== banco) : [...prof.dias, banco] })}
@@ -1033,7 +1084,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              {editId && <button onClick={() => excluir("professor", editId)} disabled={pendente} className="mr-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
+              {editId && <button onClick={() => excluir("professor", editId)} disabled={pendente} className="btn btn-perigo mr-auto"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
               <button onClick={salvarProfessor} disabled={pendente} className={salvar}>Salvar Docente</button>
             </div>
           </div>
@@ -1042,7 +1093,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "turma" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
             <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Turma</h3>
             <div className="space-y-3 text-sm">
               <div><label className="block font-semibold mb-1">Nome / Período</label><input value={turma.nome} onChange={(e) => setTurma({ ...turma, nome: e.target.value })} type="text" placeholder="Ex: Eng. Civil (4º Período)" className={inp} /></div>
@@ -1051,7 +1102,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              {editId && <button onClick={() => excluir("turma", editId)} disabled={pendente} className="mr-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
+              {editId && <button onClick={() => excluir("turma", editId)} disabled={pendente} className="btn btn-perigo mr-auto"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
               <button onClick={salvarTurma} disabled={pendente} className={salvar}>Salvar Turma</button>
             </div>
           </div>
@@ -1060,7 +1111,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "disciplina" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto janela">
             <h3 className="text-lg font-bold text-[#1A2332]">{editAulaId ? "Editar" : "Cadastrar"} Oferta de Disciplina</h3>
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
@@ -1144,16 +1195,16 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               {editAulaId && (
                 <p className="text-xs text-gray-500">CH e rodízio são da disciplina: mudam em todas as turmas dela. Turmas que assistem junto acompanham dia, horário, sala e professor.</p>
               )}
-              {conf?.erro && <p className="text-xs bg-red-50 border border-red-200 text-red-800 rounded-lg p-2.5">{conf.erro}</p>}
+              {conf?.erro && <p className="text-xs bg-red-50 border border-red-200 text-red-800 rounded-[14px] p-2.5">{conf.erro}</p>}
 
               {/* Conferência de choques: só aparece depois que turma e disciplina foram preenchidas */}
               {conf && (
                 <div className="space-y-1.5">
                   {conf.conflitos.length === 0 && conf.ok && (
-                    <p className="text-xs bg-green-50 border border-green-200 text-green-800 rounded-lg p-2.5">✓ Sem choques. Ficará: {conf.resumo}</p>
+                    <p className="text-xs bg-green-50 border border-green-200 text-green-800 rounded-[14px] p-2.5">✓ Sem choques. Ficará: {conf.resumo}</p>
                   )}
                   {conf.conflitos.map((c, i) => (
-                    <p key={i} className={`text-xs rounded-lg p-2.5 border ${c.gravidade === "ERRO" ? "bg-red-50 border-red-200 text-red-800" : "bg-yellow-50 border-yellow-200 text-yellow-800"}`}>
+                    <p key={i} className={`text-xs rounded-[14px] p-2.5 border ${c.gravidade === "ERRO" ? "bg-red-50 border-red-200 text-red-800" : "bg-yellow-50 border-yellow-200 text-yellow-800"}`}>
                       <b>{c.gravidade === "ERRO" ? "Choque" : "Confirmar"}:</b> {c.mensagem}
                     </p>
                   ))}
@@ -1164,7 +1215,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
               {editAulaId && (
-                <button onClick={() => excluir("aula", editAulaId)} disabled={pendente} className="mr-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold">
+                <button onClick={() => excluir("aula", editAulaId)} disabled={pendente} className="btn btn-perigo mr-auto">
                   <i className="fa-solid fa-trash mr-1"></i>Excluir
                 </button>
               )}
@@ -1178,7 +1229,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "whatsapp" && waTurma && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md space-y-4">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
             <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-brands fa-whatsapp text-green-500"></i> Enviar Notificação</h3>
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-xs font-mono text-gray-800 space-y-1">
               <p className="font-bold text-green-800">📲 [AVISO ACADÊMICO - UNISAPIENS]</p>
@@ -1186,7 +1237,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              <button onClick={enviarDisparo} disabled={pendente} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg text-sm">Enviar Disparo</button>
+              <button onClick={enviarDisparo} disabled={pendente} className="btn bg-green-700 text-white">Registrar aviso</button>
             </div>
           </div>
         </div>
@@ -1194,8 +1245,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "gerar" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto text-sm">
-            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-forward text-[#F39200]"></i> Gerar {dados.oferta !== "—" ? proximoCodigo(dados.oferta) : ""}</h3>
+          <div className="p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto text-sm janela">
+            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-forward text-[#B45309]"></i> Gerar {dados.oferta !== "—" ? proximoCodigo(dados.oferta) : ""}</h3>
             {!geracao?.ok && (
               <>
                 <p className="text-gray-600">
@@ -1206,12 +1257,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 {geracao?.existe && (
                   <label className="flex items-center gap-2 text-red-700 font-semibold"><input type="checkbox" checked={gerSubstituir} onChange={(e) => setGerSubstituir(e.target.checked)} /> Substituir o rascunho {geracao.codigo} (as mudanças feitas nele se perdem)</label>
                 )}
-                {geracao?.erro && <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3">{geracao.erro}</div>}
+                {geracao?.erro && <div className="bg-red-50 border border-red-200 text-red-800 rounded-[14px] p-3">{geracao.erro}</div>}
               </>
             )}
             {geracao?.ok && (
               <div className="space-y-3">
-                <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 font-semibold">
+                <div className="bg-green-50 border border-green-200 text-green-800 rounded-[14px] p-3 font-semibold">
                   Rascunho {geracao.codigo} gerado a partir de {geracao.origem}: {geracao.turmas} turmas, {geracao.alocadas} de {geracao.comHorario} aulas com dia e horário.
                 </div>
                 {([
@@ -1239,10 +1290,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "realocar" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-right-left text-[#F39200]"></i> Realocar Aula</h3>
+          <div className="p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto janela">
+            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-right-left text-[#B45309]"></i> Realocar Aula</h3>
             {!sugestao && <p className="text-sm text-gray-500">Procurando horários e salas livres...</p>}
-            {sugestao && !sugestao.ok && <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-sm">{sugestao.erro}</div>}
+            {sugestao && !sugestao.ok && <div className="bg-red-50 border border-red-200 text-red-800 rounded-[14px] p-3 text-sm">{sugestao.erro}</div>}
             {sugestao?.ok && (
               <>
                 <div className="text-sm space-y-1">
@@ -1259,7 +1310,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-gray-600 uppercase">Opções sem choque</p>
                     {sugestao.opcoes.map((o, i) => (
-                      <label key={i} className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer text-sm ${opcaoEscolhida === i ? "border-[#F39200] bg-orange-50" : "border-gray-200"}`}>
+                      <label key={i} className={`flex items-start gap-3 border rounded-[14px] p-3 cursor-pointer text-sm ${opcaoEscolhida === i ? "border-[#F39200] bg-orange-50" : "border-gray-200"}`}>
                         <input type="radio" checked={opcaoEscolhida === i} onChange={() => setOpcaoEscolhida(i)} className="mt-1" />
                         <span>
                           <b>{o.descricao}</b> <span className="text-xs text-gray-500">({o.muda})</span>
@@ -1269,7 +1320,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3 text-sm">
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-[14px] p-3 text-sm">
                     Nenhum dia, horário ou laboratório livre para esta aula sem mexer em outras. Tente trocar o professor ou mover a outra aula do choque.
                   </div>
                 )}
@@ -1289,17 +1340,17 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
       {modal === "resolver" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-wand-magic-sparkles text-[#F39200]"></i> Resolver Conflitos</h3>
+          <div className="p-6 w-full max-w-2xl space-y-4 max-h-[90vh] overflow-y-auto janela">
+            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-solid fa-wand-magic-sparkles text-[#B45309]"></i> Resolver Conflitos</h3>
             {!plano && <p className="text-sm text-gray-500">Montando sugestões...</p>}
-            {plano && !plano.ok && <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-sm">{plano.erro}</div>}
+            {plano && !plano.ok && <div className="bg-red-50 border border-red-200 text-red-800 rounded-[14px] p-3 text-sm">{plano.erro}</div>}
             {plano?.ok && (
               <>
                 <p className="text-sm text-gray-500">Uma mudança por aula, conferida em sequência (mover uma aula costuma resolver o choque da outra). Desmarque o que não quiser.</p>
                 {plano.movimentos.length === 0 && <p className="text-sm">Nenhuma mudança possível sem mexer em mais de uma aula.</p>}
                 <div className="space-y-2">
                   {plano.movimentos.map((m) => (
-                    <label key={m.turmaId} className="flex items-start gap-3 border border-gray-200 rounded-lg p-3 text-sm cursor-pointer">
+                    <label key={m.turmaId} className="campo campo-sm">
                       <input
                         type="checkbox" className="mt-1" checked={marcados.has(m.turmaId)}
                         onChange={(e) => setMarcados((s) => { const n = new Set(s); if (e.target.checked) n.add(m.turmaId); else n.delete(m.turmaId); return n; })}
@@ -1307,14 +1358,14 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       <span>
                         <b>{m.turma}</b>
                         <span className="block text-xs text-red-700">{m.motivo}</span>
-                        <span className="block">{m.de} → <b className="text-[#F39200]">{m.opcao.descricao}</b> <span className="text-xs text-gray-500">({m.opcao.muda})</span></span>
+                        <span className="block">{m.de} → <b className="text-[#B45309]">{m.opcao.descricao}</b> <span className="text-xs text-gray-500">({m.opcao.muda})</span></span>
                         {m.opcao.avisos.map((a, j) => <span key={j} className="block text-xs text-yellow-700">⚠️ {a}</span>)}
                       </span>
                     </label>
                   ))}
                 </div>
                 {plano.semSolucao.length > 0 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm space-y-1">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-[14px] p-3 text-sm space-y-1">
                     <p className="font-semibold text-yellow-800">Sem opção automática (resolver na mão):</p>
                     {plano.semSolucao.map((s) => <p key={s.turmaId} className="text-xs text-yellow-800">• {s.turma}: {s.motivo}</p>)}
                   </div>

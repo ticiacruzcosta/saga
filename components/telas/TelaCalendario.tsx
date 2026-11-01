@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { adicionarDiaSemAula, removerDiaSemAula, salvarPeriodoLetivo } from "@/app/calendario";
 import { diaDaData, diaMes } from "@/lib/datas";
 import type { CalendarioVM } from "@/lib/tipos";
+import { avisar } from "@/components/avisos";
 
-const inp = "w-full border border-gray-200 rounded-lg p-2.5 text-sm";
+const inp = "campo";
 
 export default function TelaCalendario({ calendario, oferta }: { calendario: CalendarioVM; oferta: string }) {
   const router = useRouter();
@@ -21,33 +22,34 @@ export default function TelaCalendario({ calendario, oferta }: { calendario: Cal
   const rodar = (acao: () => Promise<{ ok: boolean; erro?: string }>, depois?: () => void) =>
     iniciar(async () => {
       const r = await acao();
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Calendário atualizado");
       depois?.();
       router.refresh();
     });
 
   return (
     <section className="space-y-6 max-w-3xl">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+      <div className="p-5 space-y-3 cartao">
         <h3 className="font-bold text-[#1A2332]">Período letivo de {oferta}</h3>
         <p className="text-xs text-gray-500">Fora deste período o calendário do Dashboard mostra os dias como "sem aula".</p>
         <div className="grid sm:grid-cols-3 gap-3 items-end">
           <label className="text-sm font-semibold text-gray-700">Início das aulas<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={inp} /></label>
           <label className="text-sm font-semibold text-gray-700">Fim das aulas<input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className={inp} /></label>
-          <button onClick={() => rodar(() => salvarPeriodoLetivo({ inicio, fim }))} disabled={pendente} className="bg-[#F39200] text-white rounded-lg py-2.5 text-sm font-bold">
+          <button onClick={() => rodar(() => salvarPeriodoLetivo({ inicio, fim }))} disabled={pendente} className="btn btn-principal">
             Salvar período
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+      <div className="p-5 space-y-3 cartao">
         <h3 className="font-bold text-[#1A2332]">Feriados e dias sem aula</h3>
         <div className="grid sm:grid-cols-[10rem_1fr_auto] gap-3 items-end">
           <label className="text-sm font-semibold text-gray-700">Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} className={inp} /></label>
           <label className="text-sm font-semibold text-gray-700">Motivo<input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Finados" className={inp} /></label>
           <button
             onClick={() => rodar(() => adicionarDiaSemAula({ data, descricao }), () => { setData(""); setDescricao(""); })}
-            disabled={pendente} className="bg-[#1A2332] text-white rounded-lg px-4 py-2.5 text-sm font-bold"
+            disabled={pendente} className="btn btn-escuro"
           >
             Adicionar
           </button>
@@ -61,7 +63,7 @@ export default function TelaCalendario({ calendario, oferta }: { calendario: Cal
                 <span className="text-xs text-gray-500 ml-2">{(diaDaData(d.data) ?? "DOMINGO").toLowerCase()}</span>
                 <span className="ml-3">{d.descricao}</span>
               </span>
-              <button onClick={() => rodar(() => removerDiaSemAula(d.id))} disabled={pendente} title="Remover" className="p-2 text-gray-400 hover:text-red-600">
+              <button onClick={() => rodar(() => removerDiaSemAula(d.id))} disabled={pendente} title="Remover" className="btn btn-icone hover:text-red-600">
                 <i className="fa-solid fa-trash"></i>
               </button>
             </li>

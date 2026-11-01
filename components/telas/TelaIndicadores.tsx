@@ -15,7 +15,7 @@ const fmtH = (h: number) => `${h.toLocaleString("pt-BR", { maximumFractionDigits
 
 function Numero({ valor, rotulo, alerta }: { valor: number; rotulo: string; alerta?: boolean }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="p-4 cartao">
       <div className="text-3xl font-bold text-[#1A2332] flex items-center gap-2">
         {valor}
         {alerta && valor > 0 && <i className="fa-solid fa-triangle-exclamation text-lg" style={{ color: COR_ALERTA }} title="Precisa de atenção"></i>}
@@ -87,7 +87,7 @@ export default function TelaIndicadores({ dados }: { dados: DadosSaga }) {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="p-5 cartao">
           <h3 className="font-bold text-[#1A2332]">Carga horária por professor</h3>
           <p className="text-xs text-gray-500 mb-3">Horas de aula presencial/síncrona por semana. Limite de referência: {LIMITE_HORAS_SEMANA} h.</p>
           {professores.length === 0 ? (
@@ -106,7 +106,7 @@ export default function TelaIndicadores({ dados }: { dados: DadosSaga }) {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="p-5 cartao">
           <h3 className="font-bold text-[#1A2332]">Uso das salas e laboratórios</h3>
           <p className="text-xs text-gray-500 mb-3">Dias da semana com pelo menos uma aula (de {DIAS_LETIVOS}). "Sala comum" e EAD não entram.</p>
           <ul>
@@ -125,7 +125,7 @@ export default function TelaIndicadores({ dados }: { dados: DadosSaga }) {
         <div className="grid lg:grid-cols-2 gap-6">
           {[["Aulas sem professor", semProfessor], ["Aulas sem dia/horário", semDia]].map(([titulo, lista]) => (
             (lista as TurmaVM[]).length > 0 && (
-              <details key={titulo as string} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <details key={titulo as string} className="p-5 cartao">
                 <summary className="font-bold text-[#1A2332] cursor-pointer">{titulo as string}: {(lista as TurmaVM[]).length}</summary>
                 <ul className="mt-2 text-xs text-gray-600 space-y-1">
                   {(lista as TurmaVM[]).map((t) => <li key={t.id}>• {t.nome} · {t.turma}</li>)}

@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { desfazerAtividade } from "@/app/atividades";
 import type { AtividadeVM } from "@/lib/tipos";
+import { avisar, confirmar } from "@/components/avisos";
 
 export default function TelaAtividades({ atividades }: { atividades: AtividadeVM[] }) {
   const router = useRouter();
@@ -17,24 +18,25 @@ export default function TelaAtividades({ atividades }: { atividades: AtividadeVM
     return atividades.filter((a) => !termo || `${a.usuario} ${a.acao} ${a.descricao}`.toLowerCase().includes(termo));
   }, [atividades, busca]);
 
-  function desfazer(a: AtividadeVM) {
-    if (!confirm(`Desfazer "${a.acao}: ${a.descricao}"?`)) return;
+  async function desfazer(a: AtividadeVM) {
+    if (!(await confirmar(`${a.acao}: ${a.descricao}`, { titulo: "Desfazer esta ação?", botao: "Desfazer" }))) return;
     iniciar(async () => {
       const r = await desfazerAtividade(a.id);
-      if (!r.ok) return alert(r.erro);
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Ação desfeita");
       router.refresh();
     });
   }
 
   return (
     <section className="space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap gap-3 items-center justify-between">
+      <div className="p-4 flex flex-wrap gap-3 items-center justify-between cartao">
         <input
           value={busca} onChange={(e) => setBusca(e.target.value)} data-busca
           placeholder="Filtrar por pessoa, ação ou descrição..."
-          className="flex-1 min-w-[14rem] max-w-md border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          className="campo flex-1 min-w-[14rem] max-w-md"
         />
-        <a href="/api/backup" className="bg-[#1A2332] text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+        <a href="/api/backup" className="btn btn-escuro">
           <i className="fa-solid fa-database"></i> Baixar backup do banco
         </a>
       </div>
@@ -43,9 +45,9 @@ export default function TelaAtividades({ atividades }: { atividades: AtividadeVM
         para essas, baixe um backup antes.
       </p>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+      <div className="overflow-x-auto cartao">
         <table className="w-full text-left border-collapse text-sm min-w-[640px]">
-          <thead className="bg-gray-100 text-xs uppercase text-gray-600">
+          <thead className="tabela-cab">
             <tr>
               <th className="p-3">Quando</th>
               <th className="p-3">Quem</th>
@@ -64,7 +66,7 @@ export default function TelaAtividades({ atividades }: { atividades: AtividadeVM
                 <td className="p-3 text-xs">{a.descricao}{a.desfeita && <span className="ml-2 italic">(desfeita)</span>}</td>
                 <td className="p-3 text-center">
                   {a.podeDesfazer && (
-                    <button onClick={() => desfazer(a)} disabled={pendente} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#F39200] whitespace-nowrap">
+                    <button onClick={() => desfazer(a)} disabled={pendente} className="btn btn-secundario btn-sm">
                       <i className="fa-solid fa-rotate-left mr-1"></i>Desfazer
                     </button>
                   )}

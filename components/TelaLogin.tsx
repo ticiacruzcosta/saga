@@ -10,7 +10,7 @@ const DEGRADE = "bg-gradient-to-br from-[#F39200] to-[#1A2332]";
 
 function Campo({ icone, ...props }: { icone: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex items-center gap-3 bg-gray-100 rounded-lg px-4 py-2.5 focus-within:ring-2 focus-within:ring-[#F39200]">
+    <label className="flex items-center gap-3 bg-gray-100 rounded-[14px] px-4 py-2.5 focus-within:ring-2 focus-within:ring-[#F39200]">
       <i className={`fa-solid ${icone} text-gray-500 w-4 text-center`}></i>
       <input {...props} required className="bg-transparent outline-none text-sm w-full placeholder:text-gray-400" />
     </label>
@@ -109,7 +109,7 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
 
           <button
             type="submit" disabled={pendente}
-            className="mt-1 rounded-full py-2.5 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#F39200] to-[#1A2332] hover:opacity-90 transition disabled:opacity-60"
+            className="mt-1 rounded-full py-2.5 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#C2410C] to-[#1A2332] hover:brightness-110 transition disabled:opacity-60"
           >
             {pendente ? "Aguarde..." : criando ? "Criar conta" : "Entrar"}
           </button>

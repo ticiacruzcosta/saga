@@ -58,9 +58,9 @@ export default function CalendarioDia({
       <div className="fixed inset-0 z-40" onClick={onFechar} />
       <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-200 p-4 w-80 text-sm">
         <div className="flex items-center justify-between mb-3">
-          <button onClick={() => andarMes(-1)} className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-600" title="Mês anterior"><i className="fa-solid fa-chevron-left"></i></button>
+          <button onClick={() => andarMes(-1)} className="w-8 h-8 rounded-[14px] hover:bg-gray-100 text-gray-600" title="Mês anterior"><i className="fa-solid fa-chevron-left"></i></button>
           <span className="font-bold text-[#1A2332]">{MESES[mes.mes]} {mes.ano}</span>
-          <button onClick={() => andarMes(1)} className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-600" title="Próximo mês"><i className="fa-solid fa-chevron-right"></i></button>
+          <button onClick={() => andarMes(1)} className="w-8 h-8 rounded-[14px] hover:bg-gray-100 text-gray-600" title="Próximo mês"><i className="fa-solid fa-chevron-right"></i></button>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-400 mb-1">
           {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
@@ -77,7 +77,7 @@ export default function CalendarioDia({
                 key={i}
                 onClick={() => onEscolher(data)}
                 title={motivo ? `Sem aula: ${motivo}` : cor?.texto ?? (dom ? "Domingo: sem aula" : undefined)}
-                className={`h-9 rounded-lg text-xs font-semibold transition
+                className={`h-9 rounded-[14px] text-xs font-semibold transition
                   ${motivo ? "bg-gray-100 text-gray-400 line-through" : cor ? cor.cls : dom ? "text-gray-300" : "text-gray-700 hover:bg-orange-50"}
                   ${escolhido ? "ring-2 ring-[#1A2332] ring-offset-1" : ""}
                   ${data === hoje ? "underline decoration-2 underline-offset-2" : ""}`}
@@ -100,7 +100,7 @@ export default function CalendarioDia({
           </div>
         )}
         <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
-          <button onClick={() => onEscolher(hoje)} className="text-xs font-bold text-[#F39200] hover:underline">Hoje</button>
+          <button onClick={() => onEscolher(hoje)} className="text-xs font-bold text-[#B45309] hover:underline">Hoje</button>
           <button onClick={onFechar} className="text-xs text-gray-500 hover:underline">Fechar</button>
         </div>
       </div>

@@ -39,20 +39,20 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
 
   return (
     <section className="space-y-4">
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4 print:hidden">
+      <div className="p-5 space-y-4 print:hidden cartao">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-[#1A2332] uppercase tracking-wider flex items-center gap-2">
-            <i className="fa-solid fa-filter text-[#F39200]"></i> Filtros do Quadro Geral
+            <i className="fa-solid fa-filter text-[#B45309]"></i> Filtros do Quadro Geral
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-gray-600">Linhas por:</span>
             {([["turma", "Turma"], ["prof", "Professor"], ["sala", "Sala / Lab"]] as const).map(([v, l]) => (
               <button key={v} onClick={() => setSAgrupar(v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${sAgrupar === v ? "bg-[#1A2332] text-white border-[#1A2332]" : "border-gray-200 text-gray-600 hover:border-[#F39200]"}`}>
+                className={`btn btn-sm ${sAgrupar === v ? "btn-escuro" : "btn-secundario"}`}>
                 {l}
               </button>
             ))}
-            <button onClick={() => window.print()} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:border-[#F39200]">
+            <button onClick={() => window.print()} className="btn btn-secundario btn-sm">
               <i className="fa-solid fa-print mr-1"></i>Imprimir
             </button>
           </div>
@@ -60,42 +60,42 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
-            <select value={sDia} onChange={(e) => setSDia(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+            <select value={sDia} onChange={(e) => setSDia(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todos os Dias</option>
               {OPCOES_DIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
-            <select value={sProf} onChange={(e) => setSProf(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+            <select value={sProf} onChange={(e) => setSProf(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todos os Professores</option>
               {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
-            <select value={sTurma} onChange={(e) => setSTurma(e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-sm">
+            <select value={sTurma} onChange={(e) => setSTurma(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todas as Turmas</option>
               {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Busca Direta</label>
-            <input type="text" value={sBusca} onChange={(e) => setSBusca(e.target.value)} data-busca placeholder="Ex: LAB01, Irvine...  ( / )" className="w-full border border-gray-200 rounded-lg p-2 text-sm" />
+            <input type="text" value={sBusca} onChange={(e) => setSBusca(e.target.value)} data-busca placeholder="Ex: LAB01, Irvine...  ( / )" className="campo campo-sm w-full" />
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto print:shadow-none print:border-0">
+      <div className="overflow-x-auto print:shadow-none print:border-0 cartao">
         {semana.total === 0 ? (
           <p className="p-8 text-center text-gray-400">Nada encontrado.</p>
         ) : (
           <table className="w-full border-collapse text-xs min-w-[900px]">
             <thead>
-              <tr className="bg-[#1A2332] text-white uppercase tracking-wider">
-                <th className="p-3 text-left w-44 sticky left-0 bg-[#1A2332]">{sAgrupar === "turma" ? "Turma" : sAgrupar === "prof" ? "Professor" : "Sala / Lab"}</th>
+              <tr className="tabela-cab">
+                <th className="p-3 text-left w-44 sticky left-0 bg-[var(--saga-cabecalho-tabela)]">{sAgrupar === "turma" ? "Turma" : sAgrupar === "prof" ? "Professor" : "Sala / Lab"}</th>
                 {semana.colunas.map((c) => (
-                  <th key={c} className={`p-3 text-left ${c === dados.diaHoje ? "bg-[#F39200]" : ""}`}>
+                  <th key={c} className={`p-3 text-left ${c === dados.diaHoje ? "bg-[#FFF4E5] text-[#9A3412]" : ""}`}>
                     {c === "EAD" ? "EAD / sem dia" : OPCOES_DIA.find(([v]) => v === c)?.[1]}
                   </th>
                 ))}
@@ -120,7 +120,7 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
                             {a.horario !== "—" && <div className="text-gray-500">{a.horario}</div>}
                             {sAgrupar !== "turma" && <div className="text-gray-600">{a.turma}</div>}
                             {sAgrupar !== "prof" && <div className="text-gray-600">{a.profGrade}</div>}
-                            {sAgrupar !== "sala" && <div className="font-bold text-[#F39200]">{a.salaGrade}</div>}
+                            {sAgrupar !== "sala" && <div className="font-bold text-[#B45309]">{a.salaGrade}</div>}
                             {a.formato !== "Presencial" && <div className="text-gray-400">{a.formato}</div>}
                             {a.consome && <div className="text-blue-600">assiste com outro curso</div>}
                             {trocaHoje && (
@@ -146,7 +146,7 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
         <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-teal-500 bg-gray-100 mr-1"></span>Síncrona</span>
         <span><span className="inline-block w-3 h-3 align-middle border-l-4 border-l-gray-400 bg-gray-100 mr-1"></span>Assíncrona</span>
         <span><span className="inline-block w-3 h-3 align-middle border border-red-400 bg-red-50 mr-1"></span>Com conflito</span>
-        <span className="text-[#F39200] font-semibold">Coluna laranja = hoje</span>
+        <span className="text-[#B45309] font-semibold">Coluna laranja = hoje</span>
       </div>
     </section>
   );

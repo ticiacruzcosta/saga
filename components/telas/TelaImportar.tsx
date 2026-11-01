@@ -6,6 +6,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmarImportacao, previsualizarImportacao } from "@/app/importacao";
 import type { PreviaImportacao } from "@/lib/tipos";
+import { avisar } from "@/components/avisos";
 
 export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
   const router = useRouter();
@@ -38,16 +39,16 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
       const r = await confirmarImportacao(formImportacao());
       setPrevia(r);
       if (r.gravado) {
-        alert(`Oferta ${r.codigo} importada: ${r.turmas} turmas.`);
+        avisar(`Oferta ${r.codigo} importada: ${r.turmas} turmas.`);
         router.refresh();
-      } else if (r.erro) alert(r.erro);
+      } else if (r.erro) avisar(r.erro, "erro");
     });
   }
 
   return (
     <section className="space-y-6">
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-2xl mx-auto text-center space-y-4">
-        <div className="w-16 h-16 bg-orange-100 text-[#F39200] rounded-full flex items-center justify-center mx-auto text-2xl">
+      <div className="p-8 max-w-2xl mx-auto text-center space-y-4 cartao">
+        <div className="w-16 h-16 bg-orange-100 text-[#B45309] rounded-full flex items-center justify-center mx-auto text-2xl">
           <i className="fa-solid fa-cloud-arrow-up"></i>
         </div>
         <h3 className="text-lg font-bold text-[#1A2332]">Importar Planilha de Oferta (.XLSX)</h3>
@@ -65,7 +66,7 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
           <label className="block text-sm font-semibold text-gray-700">
             Semestre da oferta
-            <input value={impCodigo} onChange={(e) => { setImpCodigo(e.target.value); setPrevia(null); }} placeholder="2027.1" className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-normal" />
+            <input value={impCodigo} onChange={(e) => { setImpCodigo(e.target.value); setPrevia(null); }} placeholder="2027.1" className="campo mt-1" />
           </label>
           <div className="space-y-2 text-sm text-gray-700 pt-6">
             <label className="flex items-center gap-2"><input type="checkbox" checked={impPublicar} onChange={(e) => setImpPublicar(e.target.checked)} /> Publicar (passa a ser a oferta exibida)</label>
@@ -75,13 +76,13 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
           </div>
         </div>
         <div className="flex gap-3">
-          <button onClick={previsualizar} disabled={!arquivo || pendente} className="bg-[#1A2332] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex-1">
+          <button onClick={previsualizar} disabled={!arquivo || pendente} className="btn btn-escuro flex-1">
             {pendente ? "Lendo..." : "1. Conferir Arquivo"}
           </button>
           <button
             onClick={importar}
             disabled={!previa?.ok || previa.gravado || pendente || Boolean(previa.ofertaExistente && !impSubstituir)}
-            className="bg-[#F39200] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex-1"
+            className="btn btn-principal flex-1"
           >
             2. Importar
           </button>
@@ -89,9 +90,9 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
       </div>
 
       {previa && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto space-y-4 text-sm">
-          {previa.erro && <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 font-semibold">{previa.erro}</div>}
-          {previa.gravado && <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 font-semibold">Oferta {previa.codigo} gravada com {previa.turmas} turmas.</div>}
+        <div className="p-6 max-w-4xl mx-auto space-y-4 text-sm cartao">
+          {previa.erro && <div className="bg-red-50 border border-red-200 text-red-800 rounded-[14px] p-3 font-semibold">{previa.erro}</div>}
+          {previa.gravado && <div className="bg-green-50 border border-green-200 text-green-800 rounded-[14px] p-3 font-semibold">Oferta {previa.codigo} gravada com {previa.turmas} turmas.</div>}
           {previa.turmas != null && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -101,7 +102,7 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
                   ["Choques", previa.choques?.filter((c) => c.gravidade === "ERRO").length],
                   ["Para confirmar", previa.choques?.filter((c) => c.gravidade === "AVISO").length],
                 ].map(([rotulo, n]) => (
-                  <div key={String(rotulo)} className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div key={String(rotulo)} className="bg-gray-50 rounded-[14px] p-3 text-center">
                     <div className="text-2xl font-bold text-[#1A2332]">{n ?? 0}</div>
                     <div className="text-xs text-gray-500">{rotulo}</div>
                   </div>
@@ -109,7 +110,7 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
               </div>
               <p className="text-gray-500">Aba lida: <b>{previa.aba}</b>. Nada foi gravado ainda{previa.gravado ? " (agora já foi)" : ""}.</p>
               {previa.ofertaExistente && (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3">
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-[14px] p-3">
                   A oferta <b>{previa.codigo}</b> já existe ({previa.ofertaExistente.status}) com {previa.ofertaExistente.turmas} turmas
                   {previa.ofertaExistente.alteracoes > 0 && ` e ${previa.ofertaExistente.alteracoes} alterações do dashboard`}. Ao substituir, essas turmas
                   {previa.ofertaExistente.alteracoes > 0 && " e alterações"} são apagadas. Cadastros e avisos não mudam.
