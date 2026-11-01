@@ -83,6 +83,8 @@ da planilha original. **Atenção:** `npm run banco` apaga o banco inteiro. No d
 
 ### Publicar na internet (Vercel + Neon)
 
+Endereço publicado: **https://saga-liard.vercel.app** (as funções rodam em São Paulo, `gru1`, perto do banco: ver `vercel.json`).
+
 O banco é PostgreSQL no **Neon** e o site roda na **Vercel**; os endereços do banco ficam no `.env` (modelo em `.env.example`), que não vai para o Git.
 
 1. **Neon** (neon.tech): crie um projeto (região São Paulo) e copie as duas conexões em *Connect*: a *pooled* vai em `DATABASE_URL`, a direta em `DIRECT_URL`.
@@ -142,7 +144,7 @@ lib/
   dados.ts, vm.ts      leitura do banco e preparo dos dados da tela
 prisma/schema.prisma   modelo do banco
 dados-fonte/           planilhas originais
-docs/                  documentação, ata da reunião e protótipo
+docs/                  protótipo
 seed.py                carga inicial do banco
 tests/                 testes automáticos (npm test)
 ```
