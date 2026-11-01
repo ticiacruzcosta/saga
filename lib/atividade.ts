@@ -12,9 +12,6 @@ export type Desfazer =
   | { tipo: "recriarProfessor"; registro: Professor; turmas: number[]; disciplinas: number[] }
   | { tipo: "recriarGrupo"; registro: GrupoAlunos; avisos: Aviso[] };
 
-/** Prazo para desfazer uma ação. */
-export const PRAZO_DESFAZER_MS = 24 * 60 * 60 * 1000;
-
 export async function registrar(usuario: UsuarioLogado | null, acao: string, descricao: string, desfazer?: Desfazer) {
   await prisma.atividade.create({
     data: {

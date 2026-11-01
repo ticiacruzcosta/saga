@@ -22,7 +22,7 @@ export default function TelaUsuarios({ usuarios, eu }: { usuarios: UsuarioVM[]; 
     });
   }
   async function mudarPerfil(id: number, admin: boolean, nome: string) {
-    if (!(await confirmar(admin ? "Poderá aprovar, desativar e excluir contas, e ver Atividades e Backup." : "Volta a ser usuário comum.", { titulo: admin ? `Tornar ${nome} administrador?` : `Tirar ${nome} da administração?`, botao: "Confirmar" }))) return;
+    if (!(await confirmar(admin ? "Poderá aprovar, desativar e excluir contas." : "Volta a ser usuário comum.", { titulo: admin ? `Tornar ${nome} administrador?` : `Tirar ${nome} da administração?`, botao: "Confirmar" }))) return;
     iniciar(async () => {
       const r = await definirAdmin(id, admin);
       if (!r.ok) return avisar(r.erro, "erro");

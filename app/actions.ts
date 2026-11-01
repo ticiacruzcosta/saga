@@ -419,7 +419,7 @@ export async function excluirCadastro(tipo: TipoCadastro, id: number): Promise<{
   const eu = await exigirUsuario();
   const previa = await previaExclusao(tipo, id);
   if (!previa.pode) return { ok: false, erro: previa.mensagem };
-  // Antes de apagar, guarda o necessário para desfazer (tela Atividades)
+  // Antes de apagar, registra o que foi excluído (auditoria em atividades)
   if (tipo === "sala") {
     const registro = (await prisma.ambiente.findUnique({ where: { id } }))!;
     const [turmas, disciplinas] = await Promise.all([

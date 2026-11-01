@@ -22,9 +22,6 @@ import TelaHistorico from "./telas/TelaHistorico";
 import TelaImportar from "./telas/TelaImportar";
 import TelaSemana from "./telas/TelaSemana";
 import TelaUsuarios from "./telas/TelaUsuarios";
-import TelaAtividades from "./telas/TelaAtividades";
-import TelaCalendario from "./telas/TelaCalendario";
-import TelaIndicadores from "./telas/TelaIndicadores";
 import ModalSenha from "./ModalSenha";
 import Avisos, { avisar, confirmar } from "./avisos";
 import type {
@@ -42,9 +39,6 @@ const TITULOS: Record<string, [string, string]> = {
   disciplinas: ["Ofertas e disciplinas", "Todas as aulas do semestre aberto"],
   whatsapp: ["Status do bot", "Envio automático de avisos"],
   usuarios: ["Usuários", "Contas de acesso, aprovação e perfis"],
-  indicadores: ["Indicadores", "Números do semestre, carga horária e uso das salas"],
-  calendario: ["Calendário letivo", "Período de aulas, feriados e recessos"],
-  atividades: ["Atividades e backup", "Quem fez o quê, desfazer e cópia do banco"],
 };
 
 const FORM_VAZIO = {
@@ -418,10 +412,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       const p = await previaExclusao(tipo, id);
       if (!p.pode) return avisar(p.mensagem, "erro");
       const [titulo, ...resto] = p.mensagem.split("\n\n");
-      if (!(await confirmar(resto.join("\n\n") || "Você pode desfazer em Atividades por 24 horas.", { titulo, botao: "Excluir", perigo: true }))) return;
+      if (!(await confirmar(resto.join("\n\n") || "Não dá para desfazer pela tela.", { titulo, botao: "Excluir", perigo: true }))) return;
       const r = await excluirCadastro(tipo, id);
       if (!r.ok) return avisar(r.erro, "erro");
-      avisar("Excluído. Dá para desfazer em Atividades por 24 horas.");
+      avisar("Excluído");
       setModal("");
       router.refresh();
     });
@@ -538,7 +532,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               <ul className="space-y-1">
                 {navBtn("dashboard", "fa-solid fa-gauge", "Dashboard")}
                 {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre")}
-                {navBtn("indicadores", "fa-solid fa-chart-column", "Indicadores")}
                 {navBtn("horario-semana", "fa-solid fa-calendar-week", "Horário da Semana")}
                 {navBtn("importar", "fa-solid fa-file-import", "Importar Planilha")}
                 {navBtn("historico", "fa-solid fa-clock-rotate-left", "Histórico de Avisos", avisosPendentes)}
@@ -551,14 +544,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 {navBtn("professores", "fa-solid fa-chalkboard-user", "Professores")}
                 {navBtn("salas", "fa-solid fa-door-open", "Salas e Laboratórios")}
                 {navBtn("disciplinas", "fa-solid fa-book", "Ofertas e Disciplinas")}
-                {navBtn("calendario", "fa-solid fa-calendar-xmark", "Calendário Letivo")}
               </ul>
             </div>
             <div>
               <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Sistema</p>
               <ul className="space-y-1">
                 {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", contasPendentes)}
-                {usuario.admin && navBtn("atividades", "fa-solid fa-list-check", "Atividades e Backup")}
                 {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot")}
               </ul>
             </div>
@@ -991,9 +982,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {tab === "usuarios" && usuario.admin && <TelaUsuarios usuarios={dados.usuarios} eu={usuario} />}
 
           {tab === "whatsapp" && <TelaBot avisosPendentes={avisosPendentes} />}
-          {tab === "indicadores" && <TelaIndicadores dados={dados} />}
-          {tab === "calendario" && <TelaCalendario key={dados.oferta} calendario={dados.calendario} oferta={dados.oferta} />}
-          {tab === "atividades" && usuario.admin && <TelaAtividades atividades={dados.atividades} />}
         </div>
       </main>
 

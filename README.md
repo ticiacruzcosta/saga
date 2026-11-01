@@ -9,16 +9,13 @@ professor, laboratório ou turma, acompanhar as aulas do dia e gerar avisos para
 
 | Tela | O que faz |
 |---|---|
-| **Dashboard** | Aulas do dia, com calendário (clique na data) que pode colorir os dias pela ocupação das salas e risca feriados. O lápis registra troca de sala ou professor só daquele dia; *Aviso* gera a mensagem de WhatsApp. |
+| **Dashboard** | Aulas do dia, com calendário (clique na data) que pode colorir os dias pela ocupação das salas. O lápis registra troca de sala ou professor só daquele dia; *Aviso* gera a mensagem de WhatsApp. |
 | **Grade do Semestre** | Oferta completa com filtros e conflitos. **Realocar** sugere outro dia/horário/sala livre para uma aula; **Resolver Conflitos** sugere uma mudança para cada conflito. Seletor de semestre, **Gerar próximo semestre**, **Publicar** e exportar para **Excel** (no formato da planilha, pode ser importado de volta) ou **PDF**. |
 | **Horário da Semana** | Quadro de segunda a sábado, com linhas por turma, professor ou sala. Pode ser impresso. |
 | **Importar Planilha** | Lê o `.xlsx` da oferta, mostra o que vai mudar (turmas, cadastros novos, choques) e só grava quando confirmado. |
-| **Indicadores** | Números do semestre, carga horária por professor (alerta acima de 20 h/semana) e uso das salas e laboratórios. |
 | **Histórico de Avisos** | Mensagens geradas e seu status. |
 | **Usuários** (só administradores) | Aprovar, desativar, excluir contas e tornar alguém administrador. Contas criadas na tela de login ficam aguardando aprovação. |
 | **Cadastros** | Cursos & Turmas, Professores (com os dias em que não pode dar aula), Salas & Laboratórios e Ofertas & Disciplinas: cadastrar, editar e excluir. |
-| **Calendário Letivo** | Início e fim das aulas do semestre, feriados e recessos. |
-| **Atividades e Backup** (só administradores) | Quem fez o quê; **desfazer** exclusões, edições de aula e realocações em até 24 h; baixar uma cópia do banco. |
 
 Também: trocar a própria senha (ícone de chave no rodapé do menu), tema escuro (lua/sol no topo), atalho **/** para a busca,
 aviso ao fechar uma janela com alterações não salvas e bloqueio de 5 minutos após 5 senhas erradas seguidas.
@@ -107,13 +104,10 @@ app/
   importacao.ts     importação da planilha
   realocacao.ts     realocar / resolver conflitos
   ofertas.ts        semestres: escolher, gerar, publicar
-  calendario.ts     período letivo e dias sem aula
-  atividades.ts     desfazer ações registradas
   api/exportar/     download da oferta em .xlsx
-  api/backup/       download de uma cópia do banco (administradores)
 components/
   SagaApp.tsx       estrutura, Dashboard, Grade, cadastros e janelas compartilhadas
-  telas/            uma tela por arquivo (Semana, Importar, Indicadores, Calendário, Usuários, Atividades...)
+  telas/            uma tela por arquivo (Semana, Importar, Histórico, Usuários...)
   CalendarioDia.tsx calendário do dashboard
   TelaLogin.tsx     formulário de login
 lib/
