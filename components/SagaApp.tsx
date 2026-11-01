@@ -28,17 +28,17 @@ import type {
   DadosSaga, OfertaInput, PlanoResolucaoVM, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
 } from "@/lib/tipos";
 
-const TITULOS: Record<string, [string, string]> = {
-  gerador: ["Grade do semestre", "Oferta completa, conflitos e realocação"],
-  "horario-semana": ["Horário da semana", "Quadro de segunda a sábado"],
-  importar: ["Importar planilha", "Traga a oferta do Excel para o sistema"],
-  historico: ["Histórico de avisos", "Mensagens geradas para os grupos de WhatsApp"],
-  turmas: ["Cursos e turmas", "Turmas de alunos, quantidade e grupo de WhatsApp"],
-  professores: ["Professores", "Corpo docente e dias em que não podem dar aula"],
-  salas: ["Salas e laboratórios", "Espaços, capacidade e localização"],
-  disciplinas: ["Ofertas e disciplinas", "Todas as aulas do semestre aberto"],
-  whatsapp: ["Status do bot", "Envio automático de avisos"],
-  usuarios: ["Usuários", "Contas de acesso, aprovação e perfis"],
+const TITULOS: Record<string, string> = {
+  gerador: "Grade do semestre",
+  "horario-semana": "Horário da semana",
+  importar: "Importar planilha",
+  historico: "Histórico de avisos",
+  turmas: "Cursos e turmas",
+  professores: "Professores",
+  salas: "Salas e laboratórios",
+  disciplinas: "Ofertas e disciplinas",
+  whatsapp: "Status do bot",
+  usuarios: "Usuários",
 };
 
 const FORM_VAZIO = {
@@ -206,11 +206,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     return () => clearInterval(timer);
   }, [router]);
 
-  const dataExtensa = new Date(`${dataVer}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-  const [titulo, subtitulo] =
-    tab === "dashboard"
-      ? ["Horário do dia", `${dataExtensa.charAt(0).toUpperCase()}${dataExtensa.slice(1)} · Semestre ${dados.oferta}`]
-      : TITULOS[tab] ?? ["Faculdade Unisapiens", ""];
+  const titulo = tab === "dashboard" ? "Horário do dia" : TITULOS[tab] ?? "Faculdade Unisapiens";
 
   // ---------------------------------------------------------------- dados derivados
   const dashboard = useMemo(() => {
@@ -582,9 +578,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               </button>
             )}
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">{titulo}</h1>
-              {subtitulo && <p className="text-sm text-gray-600 truncate">{subtitulo}</p>}
-            </div>
+              <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">{titulo}</h1>            </div>
           </div>
           <div className="flex items-center gap-2.5">
             {dados.oferta !== "—" && (
