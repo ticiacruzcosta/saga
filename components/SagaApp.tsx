@@ -578,7 +578,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               </button>
             )}
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">{titulo}</h1>            </div>
+              <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">{titulo}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-2.5">
             {dados.oferta !== "—" && (
