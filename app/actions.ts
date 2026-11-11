@@ -4,6 +4,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { registrar } from "@/lib/atividade";
+import { chamadaTelegram, enviarMensagem, modoTelegram, telegramConfigurado } from "@/lib/telegram/api";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio } from "@/lib/dados";
 import { norm } from "@/lib/texto";
 import { DIA_BANCO, ehLab, hojeData } from "@/lib/vm";
@@ -312,6 +313,9 @@ export async function marcarAviso(id: number, enviado: boolean) {
   const eu = await exigirUsuario();
   const jaEnfileirado = await prisma.whatsappLote.findUnique({ where: { avisoId: id }, select: { id: true } });
   if (jaEnfileirado) return { ok: false, erro: "Este aviso já entrou na fila do bot. Gerencie-o no painel WhatsApp." };
+  if (!enviado) {
+    await prisma.telegramLote.deleteMany({ where: { avisoId: id } }).catch(() => {});
+  }
   const aviso = await prisma.aviso.update({
     where: { id },
     data: { status: enviado ? "ENVIADO" : "PENDENTE" },
@@ -320,6 +324,93 @@ export async function marcarAviso(id: number, enviado: boolean) {
   await registrar(eu, "Aviso", `${enviado ? "Marcou como enviado" : "Voltou para pendente"} o aviso de ${aviso.grupo.nome}`);
   atualizar();
   return { ok: true };
+}
+
+/** Disparo integrado pelo Telegram direto do Histórico de Avisos: valida chave, envia aos inscritos e atualiza status. */
+export async function enviarAvisoTelegram(id: number) {
+  const eu = await exigirUsuario();
+  if (!telegramConfigurado()) {
+    return { ok: false, erro: "Chave do Telegram não configurada." };
+  }
+  const aviso = await prisma.aviso.findUnique({ where: { id }, include: { grupo: true } });
+  if (!aviso) return { ok: false, erro: "Aviso não encontrado." };
+
+  try {
+    // Valida a chave do bot junto à API oficial do Telegram
+    await chamadaTelegram("getMe", {});
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : "Falha ao validar chave do Telegram." };
+  }
+
+  const assinantes = await prisma.telegramAssinante.findMany({ where: { ativo: true } });
+  const conteudo = `SAGA • Aviso acadêmico\nTurma: ${aviso.grupo.nome}\n${aviso.conteudo}`.slice(0, 3900);
+  const modo = modoTelegram();
+
+  let lote = await prisma.telegramLote.findUnique({ where: { avisoId: id } });
+  if (!lote) {
+    lote = await prisma.telegramLote.create({
+      data: { avisoId: id, conteudo, status: "CONFIRMADO", modoConfirmado: modo, confirmadoEm: new Date() },
+    });
+  } else {
+    lote = await prisma.telegramLote.update({
+      where: { id: lote.id },
+      data: { status: "CONFIRMADO", modoConfirmado: lote.modoConfirmado ?? modo, confirmadoEm: new Date() },
+    });
+  }
+
+  let enviadas = 0;
+  let falhas = 0;
+  let ultimoErro = "";
+
+  for (const a of assinantes) {
+    try {
+      const res = await enviarMensagem(a.chatId, conteudo);
+      await prisma.telegramMensagem.upsert({
+        where: { loteId_assinanteId: { loteId: lote.id, assinanteId: a.id } },
+        create: { loteId: lote.id, assinanteId: a.id, status: "ENVIADO", telegramId: String(res.message_id), tentativas: 1 },
+        update: { status: "ENVIADO", telegramId: String(res.message_id), erro: null, tentativas: { increment: 1 } },
+      });
+      enviadas++;
+    } catch (e) {
+      falhas++;
+      ultimoErro = e instanceof Error ? e.message : "Erro ao enviar mensagem";
+      await prisma.telegramMensagem.upsert({
+        where: { loteId_assinanteId: { loteId: lote.id, assinanteId: a.id } },
+        create: { loteId: lote.id, assinanteId: a.id, status: "FALHOU", erro: ultimoErro.slice(0, 230), tentativas: 1 },
+        update: { status: "FALHOU", erro: ultimoErro.slice(0, 230), tentativas: { increment: 1 } },
+      });
+    }
+  }
+
+  const semProblemas = falhas === 0;
+  await prisma.telegramLote.update({
+    where: { id: lote.id },
+    data: { status: "CONCLUIDO" },
+  });
+  await prisma.aviso.update({
+    where: { id },
+    data: { status: semProblemas ? "ENVIADO" : "FALHOU" },
+  });
+  await registrar(
+    eu,
+    "Aviso Telegram",
+    semProblemas
+      ? `Enviou aviso de ${aviso.grupo.nome} via Telegram (${enviadas} inscrito(s))`
+      : `Falha ao enviar aviso de ${aviso.grupo.nome} via Telegram: ${ultimoErro}`
+  );
+  atualizar();
+  revalidatePath("/bot-telegram");
+
+  if (!semProblemas) {
+    return { ok: false, erro: `Falha em ${falhas} envio(s) no Telegram: ${ultimoErro}` };
+  }
+  return {
+    ok: true,
+    resumo:
+      assinantes.length > 0
+        ? `Enviado pelo Telegram para ${enviadas} inscrito(s)!`
+        : "Validado e registrado no Telegram sem problemas de chave ou envio!",
+  };
 }
 
 // ---------------------------------------------------------------- cadastros base

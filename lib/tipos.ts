@@ -35,7 +35,16 @@ export type SalaVM = { id: number; nome: string; tipo: string; cap: number | nul
 export type ProfVM = { id: number; nome: string; email: string; dias: string[] }; // dias: em que NÃO pode dar aula (formato do banco)
 export type GrupoVM = { id: number; nome: string; alunos: number | null; wa: string };
 export type UsuarioVM = { id: number; nome: string; email: string; ativo: boolean; admin: boolean; desde: string };
-export type AvisoVM = { id: number; quando: string; turma: string; mensagem: string; status: string; enfileirado: boolean };
+export type AvisoVM = {
+  id: number;
+  quando: string;
+  turma: string;
+  mensagem: string;
+  status: string;
+  enfileirado: boolean;
+  statusTelegram: "Enviado" | "Na fila" | "Integrado" | "Falhou" | "Chave pendente";
+  detalheTelegram?: string;
+};
 
 export type DadosSaga = {
   oferta: string;
@@ -53,6 +62,7 @@ export type DadosSaga = {
   disciplinas: string[];
   totalConflitos: number;
   totalConfirmar: number;
+  telegramOk?: boolean;
 };
 
 export type OfertaInput = {

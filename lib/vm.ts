@@ -2,7 +2,8 @@ import { prisma } from "./prisma";
 import { carregarTurmas, ofertaAtual, ofertaPublicada, paraValidar, paresRodizio, type TurmaCompleta } from "./dados";
 import { validarOferta } from "./validacao-choque";
 import { dataHora, diaDeHoje, faixa, minutosParaHora } from "./rotulos";
-import type { DadosSaga, TurmaVM } from "./tipos";
+import { telegramConfigurado } from "./telegram/api";
+import type { AvisoVM, DadosSaga, TurmaVM } from "./tipos";
 
 /** O banco guarda o dia sem acento; a tela mostra com acento. */
 export const DIA_TELA: Record<string, string> = {
@@ -32,7 +33,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     ofertaAtual(), ofertaPublicada(), prisma.oferta.findMany({ orderBy: { codigo: "desc" } }),
   ]);
 
-  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, lotesWhatsapp] = await Promise.all([
+  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, lotesWhatsapp, lotesTelegram] = await Promise.all([
     prisma.ambiente.findMany({ where: { NOT: { codigo: { in: ["EAD", "SALA_COMUM"] } } }, orderBy: { codigo: "asc" } }),
     prisma.professor.findMany({ orderBy: { nome: "asc" } }),
     prisma.grupoAlunos.findMany({ orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
@@ -41,8 +42,11 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     // pedidos de acesso pendentes primeiro
     admin ? prisma.usuario.findMany({ orderBy: [{ ativo: "asc" }, { nome: "asc" }] }) : [],
     prisma.whatsappLote.findMany({ select: { avisoId: true } }).catch(() => []),
+    prisma.telegramLote.findMany({ include: { mensagens: { select: { status: true, erro: true } } } }).catch(() => []),
   ]);
   const avisosNaFila = new Set(lotesWhatsapp.map((l) => l.avisoId));
+  const lotesTgPorAviso = new Map(lotesTelegram.map((l) => [l.avisoId, l]));
+  const chaveTelegramOk = telegramConfigurado();
 
   const base: DadosSaga = {
     oferta: oferta?.codigo ?? "—",
@@ -60,15 +64,44 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
       id: p.id, nome: p.nome, email: p.email ?? "—", dias: p.diasIndisponiveis ? p.diasIndisponiveis.split(",") : [],
     })),
     grupos: grupos.map((g) => ({ id: g.id, nome: g.nome, alunos: g.qtdAlunos, wa: g.linkWhatsapp ?? "—" })),
-    avisos: avisos.map((a) => ({
-      id: a.id, quando: dataHora(a.criadoEm), turma: a.grupo.nome, mensagem: a.conteudo,
-      status: a.status === "ENTREGUE" ? "Entregue" : a.status === "ENVIADO" ? "Enviado" : a.status === "FALHOU" ? "Falhou" : "Pendente",
-      enfileirado: avisosNaFila.has(a.id),
-    })),
+    avisos: avisos.map((a) => {
+      const loteTg = lotesTgPorAviso.get(a.id);
+      const falhaTg = loteTg?.mensagens.find((m) => m.status === "FALHOU");
+      let statusTelegram: AvisoVM["statusTelegram"] = "Integrado";
+      let detalheTelegram: string | undefined;
+      if (!chaveTelegramOk) {
+        statusTelegram = "Chave pendente";
+        detalheTelegram = "Token do Telegram não configurado";
+      } else if (falhaTg) {
+        statusTelegram = "Falhou";
+        detalheTelegram = falhaTg.erro ?? "Falha no envio pelo Telegram";
+      } else if (loteTg?.status === "CONCLUIDO" || a.status === "ENVIADO" || a.status === "ENTREGUE") {
+        statusTelegram = "Enviado";
+        detalheTelegram = "Sem problemas de chave ou envio";
+      } else if (loteTg) {
+        statusTelegram = "Na fila";
+        detalheTelegram = `Lote #${loteTg.id} (${loteTg.status})`;
+      } else {
+        statusTelegram = "Integrado";
+        detalheTelegram = "Chave ativa • pronto para disparo";
+      }
+      const enviadoPorTelegram = loteTg?.status === "CONCLUIDO" && !falhaTg;
+      return {
+        id: a.id,
+        quando: dataHora(a.criadoEm),
+        turma: a.grupo.nome,
+        mensagem: a.conteudo,
+        status: a.status === "ENTREGUE" ? "Entregue" : a.status === "ENVIADO" || enviadoPorTelegram ? "Enviado" : a.status === "FALHOU" ? "Falhou" : "Pendente",
+        enfileirado: avisosNaFila.has(a.id),
+        statusTelegram,
+        detalheTelegram,
+      };
+    }),
     disciplinas: [...new Set(disciplinas.map((d) => d.nome))],
     usuarios: usuarios.map((u) => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo, admin: u.perfil === "ADMIN", desde: dataHora(u.criadoEm).slice(0, 10) })),
     totalConflitos: 0,
     totalConfirmar: 0,
+    telegramOk: chaveTelegramOk,
   };
   if (!oferta) return base;
 

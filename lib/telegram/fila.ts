@@ -76,8 +76,11 @@ export async function processarTelegram(limite = 10) {
   }
   for (const id of new Set(mensagens.map(m => m.loteId))) {
     const restantes = await prisma.telegramMensagem.count({ where: { loteId: id, status: { in: ["PENDENTE", "PROCESSANDO"] } } });
-    if (!restantes) await prisma.telegramLote.updateMany({ where: { id, status: "CONFIRMADO" }, data: { status: "CONCLUIDO" } });
+    if (!restantes) {
+      const lote = await prisma.telegramLote.update({ where: { id }, data: { status: "CONCLUIDO" } });
+      const falhas = await prisma.telegramMensagem.count({ where: { loteId: id, status: "FALHOU" } });
+      await prisma.aviso.update({ where: { id: lote.avisoId }, data: { status: falhas > 0 ? "FALHOU" : "ENVIADO" } });
+    }
   }
-  // Não altera Aviso.status: a mesma informação pode ser distribuída por outros canais.
   return res;
 }
