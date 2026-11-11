@@ -6,7 +6,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { editarAviso, enviarAvisoTelegram, marcarAviso } from "@/app/actions";
+import { editarAviso, enviarAvisoTelegram, excluirAviso, limparAvisosPendentes, marcarAviso } from "@/app/actions";
 import { avisar, confirmar } from "@/components/avisos";
 import type { AvisoVM } from "@/lib/tipos";
 
@@ -113,6 +113,35 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
     });
   }
 
+  async function remover(a: AvisoVM) {
+    const ok = await confirmar(`Excluir o aviso de ${a.turma} do histórico?`, {
+      titulo: "Excluir aviso",
+      botao: "Sim, excluir",
+    });
+    if (!ok) return;
+    iniciar(async () => {
+      const resposta = await excluirAviso(a.id);
+      if (!resposta.ok) return avisar(resposta.erro ?? "Não foi possível excluir o aviso.", "erro");
+      avisar("Aviso removido do histórico!");
+      router.refresh();
+    });
+  }
+
+  async function limparPendentes() {
+    if (pendentes === 0) return;
+    const ok = await confirmar(
+      `Deseja limpar todos os ${pendentes} aviso(s) pendente(s) do histórico? Esta ação não pode ser desfeita.`,
+      { titulo: "Limpar avisos pendentes", botao: "Sim, limpar pendentes" }
+    );
+    if (!ok) return;
+    iniciar(async () => {
+      const resposta = await limparAvisosPendentes();
+      if (!resposta.ok) return avisar("Não foi possível limpar os avisos pendentes.", "erro");
+      avisar(`${resposta.removidos ?? pendentes} aviso(s) pendente(s) removido(s)!`);
+      router.refresh();
+    });
+  }
+
   const enviados = avisos.length - pendentes;
 
   return (
@@ -151,16 +180,26 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
           </div>
         </div>
 
-        {admin && (
-          <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+        <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+          {pendentes > 0 && (
+            <button
+              type="button"
+              onClick={limparPendentes}
+              disabled={pendente}
+              className="btn btn-sm bg-white/15 hover:bg-white/25 text-white border border-white/25 font-extrabold backdrop-blur-xs"
+            >
+              <i className="fa-solid fa-trash-can"></i> Limpar pendentes ({pendentes})
+            </button>
+          )}
+          {admin && (
             <Link
               href="/bot-telegram"
               className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
             >
               <i className="fa-brands fa-telegram text-[#C2410C]"></i> Painel Telegram
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* BARRA DE BUSCA E FILTROS DO HISTÓRICO */}
@@ -315,16 +354,36 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                     >
                       <i className="fa-solid fa-check"></i>
                     </button>
+                    <button
+                      onClick={() => remover(a)}
+                      disabled={pendente}
+                      title="Excluir aviso"
+                      aria-label="Excluir aviso"
+                      className="btn btn-icone shrink-0 text-red-600 hover:bg-red-50"
+                    >
+                      <i className="fa-solid fa-trash-can"></i>
+                    </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => marcar(a, false)}
-                    disabled={pendente}
-                    title="Voltar para pendente"
-                    className="btn btn-sm btn-secundario w-full"
-                  >
-                    <i className="fa-solid fa-rotate-left"></i> Desfazer
-                  </button>
+                  <>
+                    <button
+                      onClick={() => marcar(a, false)}
+                      disabled={pendente}
+                      title="Voltar para pendente"
+                      className="btn btn-sm btn-secundario flex-1"
+                    >
+                      <i className="fa-solid fa-rotate-left"></i> Desfazer
+                    </button>
+                    <button
+                      onClick={() => remover(a)}
+                      disabled={pendente}
+                      title="Excluir aviso"
+                      aria-label="Excluir aviso"
+                      className="btn btn-icone shrink-0 text-red-600 hover:bg-red-50"
+                    >
+                      <i className="fa-solid fa-trash-can"></i>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -428,16 +487,36 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                           >
                             <i className="fa-solid fa-check"></i>
                           </button>
+                          <button
+                            onClick={() => remover(a)}
+                            disabled={pendente}
+                            title="Excluir aviso"
+                            aria-label="Excluir aviso"
+                            className="btn btn-icone text-red-600 hover:bg-red-50"
+                          >
+                            <i className="fa-solid fa-trash-can"></i>
+                          </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => marcar(a, false)}
-                          disabled={pendente}
-                          title="Voltar para pendente"
-                          className="btn btn-sm btn-secundario"
-                        >
-                          <i className="fa-solid fa-rotate-left"></i> Desfazer
-                        </button>
+                        <>
+                          <button
+                            onClick={() => marcar(a, false)}
+                            disabled={pendente}
+                            title="Voltar para pendente"
+                            className="btn btn-sm btn-secundario"
+                          >
+                            <i className="fa-solid fa-rotate-left"></i> Desfazer
+                          </button>
+                          <button
+                            onClick={() => remover(a)}
+                            disabled={pendente}
+                            title="Excluir aviso"
+                            aria-label="Excluir aviso"
+                            className="btn btn-icone text-red-600 hover:bg-red-50"
+                          >
+                            <i className="fa-solid fa-trash-can"></i>
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

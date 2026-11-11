@@ -428,6 +428,44 @@ export async function marcarAviso(id: number, enviado: boolean) {
   return { ok: true };
 }
 
+/** Exclui um aviso individual do Histórico de Avisos. */
+export async function excluirAviso(id: number) {
+  const eu = await exigirUsuario();
+  const aviso = await prisma.aviso.findUnique({ where: { id }, include: { grupo: true } });
+  if (!aviso) return { ok: false, erro: "Aviso não encontrado." };
+  await prisma.$transaction([
+    prisma.whatsappLote.deleteMany({ where: { avisoId: id } }),
+    prisma.telegramLote.deleteMany({ where: { avisoId: id } }),
+    prisma.aviso.delete({ where: { id } }),
+  ]);
+  await registrar(eu, "Exclusão de aviso", `Removeu aviso de ${aviso.grupo.nome}`);
+  atualizar();
+  revalidatePath("/bot-telegram");
+  revalidatePath("/bot-whatsapp");
+  return { ok: true };
+}
+
+/** Limpa todos os avisos com status PENDENTE ou FALHOU do Histórico de Avisos. */
+export async function limparAvisosPendentes() {
+  const eu = await exigirUsuario();
+  const pendentes = await prisma.aviso.findMany({
+    where: { status: { in: ["PENDENTE", "FALHOU"] } },
+    select: { id: true },
+  });
+  if (pendentes.length === 0) return { ok: true, removidos: 0 };
+  const ids = pendentes.map((a) => a.id);
+  await prisma.$transaction([
+    prisma.whatsappLote.deleteMany({ where: { avisoId: { in: ids } } }),
+    prisma.telegramLote.deleteMany({ where: { avisoId: { in: ids } } }),
+    prisma.aviso.deleteMany({ where: { id: { in: ids } } }),
+  ]);
+  await registrar(eu, "Limpeza de avisos", `Limpou ${ids.length} aviso(s) pendente(s) do histórico`);
+  atualizar();
+  revalidatePath("/bot-telegram");
+  revalidatePath("/bot-whatsapp");
+  return { ok: true, removidos: ids.length };
+}
+
 /** Disparo integrado pelo Telegram direto do Histórico de Avisos: valida chave, envia aos inscritos e atualiza status. */
 export async function enviarAvisoTelegram(id: number, mensagemEditada?: string) {
   const eu = await exigirUsuario();
