@@ -771,9 +771,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           </div>
           <div className="flex items-center gap-2.5">
             {dados.oferta !== "—" && (
-              <span className={`hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-extrabold ${dados.ofertaStatus === "PUBLICADA" ? "bg-emerald-50 text-emerald-700" : "bg-yellow-50 text-yellow-800"}`}>
-                <span aria-hidden="true" className={`w-2 h-2 rounded-full ${dados.ofertaStatus === "PUBLICADA" ? "bg-emerald-500" : "bg-amber-500"}`}></span>
-                {dados.oferta} {dados.ofertaStatus === "PUBLICADA" ? "publicada" : dados.ofertaStatus === "RASCUNHO" ? "rascunho" : "arquivada"}
+              <span className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-[#1A2332] text-white shadow-2xs tabular-nums">
+                <span aria-hidden="true" className="w-2 h-2 rounded-full bg-[#F39200]"></span>
+                Semestre {dados.oferta}{dados.ofertaStatus === "RASCUNHO" ? " (rascunho)" : dados.ofertaStatus === "ARQUIVADA" ? " (arquivado)" : ""}
               </span>
             )}
             <button
@@ -1032,86 +1032,189 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           )}
 
           {/* 2. GRADE DO SEMESTRE */}
-          {tab === "gerador" && (
-            <section className="space-y-5">
-              <h2 className="hidden print:block text-lg font-bold">Oferta {dados.oferta} · UNISAPIENS</h2>
-              <div className="print:hidden p-5 space-y-4 cartao">
-                <div className="flex flex-wrap justify-between items-center gap-4 border-b border-gray-200 pb-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-[#1A2332]">Matriz de Oferta Acadêmica</h3>
-                    <select value={dados.oferta} onChange={(e) => trocarOferta(e.target.value)} className="campo campo-sm !w-auto font-mono text-xs font-extrabold">
-                      {dados.ofertas.map((o) => <option key={o.codigo} value={o.codigo}>{o.codigo} · {o.status === "PUBLICADA" ? "publicada" : o.status === "RASCUNHO" ? "rascunho" : "arquivada"}</option>)}
-                    </select>
-                    {dados.oferta !== "—" && (
-                      <button onClick={abrirGerar} className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1">
-                        <i className="fa-solid fa-forward"></i> Gerar {proximoCodigo(dados.oferta)}
-                      </button>
-                    )}
+          {tab === "gerador" && (() => {
+            const gradeSemConsome = grade.filter((t) => !t.consome && t.conflitos.length > 0);
+            const conflitosFiltrados = gradeSemConsome.filter((t) => t.conflitos.some((c) => c.gravidade === "ERRO")).length;
+            const confirmarFiltrados = gradeSemConsome.filter((t) => !t.conflitos.some((c) => c.gravidade === "ERRO")).length;
+            const rotuloDiaSel = gDia !== "TODOS" ? OPCOES_DIA.find(([v]) => v === gDia)?.[1] ?? gDia : null;
+
+            const conflitosPorDia = OPCOES_DIA.map(([valor, rotulo]) => {
+              const turmasDia = dados.turmas
+                .filter((t) => !t.consome && t.dia === valor)
+                .filter((t) => gTurma === "TODOS" || t.turma === gTurma)
+                .filter((t) => gProf === "TODOS" || t.prof === gProf)
+                .filter((t) => gEspaco === "TODOS" || t.reqespaco === gEspaco);
+              const erros = turmasDia.filter((t) => t.conflitos.some((c) => c.gravidade === "ERRO")).length;
+              const avisos = turmasDia.filter((t) => t.conflitos.length > 0 && !t.conflitos.some((c) => c.gravidade === "ERRO")).length;
+              return { valor, rotulo, curto: rotulo.split("-")[0], erros, avisos };
+            });
+
+            return (
+              <section className="space-y-5">
+                <h2 className="hidden print:block text-lg font-bold">Oferta {dados.oferta} · UNISAPIENS</h2>
+
+                {/* BANNER PRINCIPAL DA MATRIZ DE OFERTA (padronizado com o Dashboard) */}
+                <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                  <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+                  <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+                  <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+                  <div className="relative space-y-2.5 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+                        <i className="fa-solid fa-calendar-days text-[#FDBA74]"></i> Matriz de Oferta Acadêmica
+                      </span>
+                      <select
+                        value={dados.oferta}
+                        onChange={(e) => trocarOferta(e.target.value)}
+                        aria-label="Selecionar oferta do semestre"
+                        className="bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-full px-3.5 py-1 text-xs font-extrabold outline-none cursor-pointer transition"
+                      >
+                        {dados.ofertas.map((o) => (
+                          <option key={o.codigo} value={o.codigo} className="text-[#1A2332] bg-white font-bold">
+                            {o.codigo} · {o.status === "PUBLICADA" ? "publicada" : o.status === "RASCUNHO" ? "rascunho" : "arquivada"}
+                          </option>
+                        ))}
+                      </select>
+                      {dados.oferta !== "—" && (
+                        <button
+                          onClick={abrirGerar}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold transition"
+                        >
+                          <i className="fa-solid fa-forward text-[#FDBA74]"></i> Gerar {proximoCodigo(dados.oferta)}
+                        </button>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight">
+                        Semestre {dados.oferta}{rotuloDiaSel ? ` · ${rotuloDiaSel}` : ""}
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {conflitosFiltrados === 0 ? (
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/25 border border-emerald-300/40 text-white text-xs font-extrabold tabular-nums">
+                          <i className="fa-solid fa-circle-check text-emerald-300"></i> 0 Conflitos{rotuloDiaSel ? ` na ${rotuloDiaSel.split("-")[0]}` : " Detectados"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-red-500/85 text-white text-xs font-extrabold shadow-xs tabular-nums">
+                          <i className="fa-solid fa-triangle-exclamation"></i> {conflitosFiltrados} Conflito(s){rotuloDiaSel ? ` na ${rotuloDiaSel.split("-")[0]}` : " Detectado(s)"}
+                        </span>
+                      )}
+                      {confirmarFiltrados > 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-400/25 border border-amber-200/45 text-amber-100 text-xs font-extrabold tabular-nums">
+                          <i className="fa-solid fa-circle-info text-amber-300"></i> {confirmarFiltrados} para confirmar
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        {dados.cursos.length} cursos · {dados.grupos.length} turmas
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {dados.totalConflitos === 0 ? (
-                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full font-extrabold flex items-center gap-1.5">
-                        <i className="fa-solid fa-circle-check text-green-500"></i> 0 Conflitos Detectados
-                      </span>
-                    ) : (
-                      <span className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full font-extrabold flex items-center gap-1.5">
-                        <i className="fa-solid fa-triangle-exclamation text-red-500"></i> {dados.totalConflitos} Conflitos Detectados
-                      </span>
-                    )}
-                    {dados.totalConfirmar > 0 && (
-                      <span className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded-full font-extrabold">
-                        {dados.totalConfirmar} para confirmar
-                      </span>
-                    )}
+
+                  <div className="relative flex flex-wrap items-center gap-2 shrink-0">
                     {dados.totalConflitos > 0 && (
-                      <button onClick={abrirResolverTodos} className="btn btn-principal btn-sm">
-                        <i className="fa-solid fa-wand-magic-sparkles"></i> Resolver Conflitos
+                      <button
+                        onClick={abrirResolverTodos}
+                        className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+                      >
+                        <i className="fa-solid fa-wand-magic-sparkles text-[#C2410C]"></i> Resolver Conflitos
                       </button>
                     )}
-                    <a href="/api/exportar" title="Planilha no formato da oferta (pode ser importada de volta)" className="btn btn-secundario btn-sm">
-                      <i className="fa-solid fa-file-excel text-green-600"></i> Excel
+                    <a
+                      href="/api/exportar"
+                      title="Planilha no formato da oferta (pode ser importada de volta)"
+                      className="btn btn-sm bg-white/15 hover:bg-white/25 text-white border border-white/25 backdrop-blur-xs"
+                    >
+                      <i className="fa-solid fa-file-excel text-emerald-300"></i> Excel
                     </a>
-                    <button onClick={() => window.print()} title="Imprimir ou salvar como PDF" className="btn btn-secundario btn-sm">
-                      <i className="fa-solid fa-file-pdf text-red-600"></i> PDF
+                    <button
+                      onClick={() => window.print()}
+                      title="Imprimir ou salvar como PDF"
+                      className="btn btn-sm bg-white/15 hover:bg-white/25 text-white border border-white/25 backdrop-blur-xs"
+                    >
+                      <i className="fa-solid fa-file-pdf text-rose-300"></i> PDF
                     </button>
-                    <button onClick={() => router.refresh()} title="Busca os dados de novo e reconfere os choques" className="btn btn-escuro btn-sm">
+                    <button
+                      onClick={() => router.refresh()}
+                      title="Busca os dados de novo e reconfere os choques"
+                      className="btn btn-sm bg-[#1A2332]/80 hover:bg-[#1A2332] text-white border border-white/20"
+                    >
                       <i className="fa-solid fa-arrows-rotate"></i> Atualizar
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
-                    <select value={gTurma} onChange={(e) => setGTurma(e.target.value)} className={filtroSel}>
-                      <option value="TODOS">Todos os Cursos</option>
-                      {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
-                    </select>
+                {/* BARRA DE FILTROS DA GRADE */}
+                <div className="print:hidden p-5 space-y-3.5 cartao">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+                        <i className="fa-solid fa-sliders"></i>
+                      </span>
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-[#1A2332]">
+                        Filtrar Matriz de Oferta
+                      </span>
+                    </div>
+                    {(gTurma !== "TODOS" || gDia !== "TODOS" || gProf !== "TODOS" || gEspaco !== "TODOS") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGTurma("TODOS");
+                          setGDia("TODOS");
+                          setGProf("TODOS");
+                          setGEspaco("TODOS");
+                        }}
+                        className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
-                    <select value={gDia} onChange={(e) => setGDia(e.target.value)} className={filtroSel}>
-                      <option value="TODOS">Todos os Dias</option>
-                      {OPCOES_DIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
-                    <select value={gProf} onChange={(e) => setGProf(e.target.value)} className={filtroSel}>
-                      <option value="TODOS">Todos os Professores</option>
-                      {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo de Ambiente</label>
-                    <select value={gEspaco} onChange={(e) => setGEspaco(e.target.value)} className={filtroSel}>
-                      <option value="TODOS">Todos os Tipos</option>
-                      <option value="Laboratório/Prático">Laboratórios</option>
-                      <option value="Presencial Teórico">Salas Teóricas</option>
-                    </select>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-users text-[#B45309] mr-1"></i> Curso / Turma
+                      </label>
+                      <select value={gTurma} onChange={(e) => setGTurma(e.target.value)} className={filtroSel}>
+                        <option value="TODOS">Todos os Cursos</option>
+                        {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-regular fa-calendar text-[#B45309] mr-1"></i> Dia da Semana
+                      </label>
+                      <select value={gDia} onChange={(e) => setGDia(e.target.value)} className={filtroSel}>
+                        <option value="TODOS">Todos os Dias</option>
+                        {OPCOES_DIA.map(([v, l]) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-chalkboard-user text-[#B45309] mr-1"></i> Professor
+                      </label>
+                      <select value={gProf} onChange={(e) => setGProf(e.target.value)} className={filtroSel}>
+                        <option value="TODOS">Todos os Professores</option>
+                        {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-computer text-[#B45309] mr-1"></i> Tipo de Ambiente
+                      </label>
+                      <select value={gEspaco} onChange={(e) => setGEspaco(e.target.value)} className={filtroSel}>
+                        <option value="TODOS">Todos os Tipos</option>
+                        <option value="Laboratório/Prático">Laboratórios</option>
+                        <option value="Presencial Teórico">Salas Teóricas</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {/* VISÃO CELULAR DA GRADE */}
               <div className="md:hidden space-y-3">
@@ -1235,8 +1338,9 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   </tbody>
                 </table>
               </div>
-            </section>
-          )}
+              </section>
+            );
+          })()}
 
           {/* 3. HORÁRIO DA SEMANA */}
           {tab === "horario-semana" && <TelaSemana dados={dados} />}

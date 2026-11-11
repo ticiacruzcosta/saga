@@ -113,73 +113,119 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
     });
   }
 
+  const enviados = avisos.length - pendentes;
+
   return (
-    <section className="space-y-4">
-      <div className="p-4 space-y-3 cartao">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-            {pendentes > 0 ? (
-              <>
-                <b className="text-red-700">{pendentes} aviso(s) pendente(s).</b> Você pode <b>editar o texto</b> antes de disparar pelo{" "}
-                <b>Telegram</b> ou pelo envio manual.
-              </>
-            ) : (
-              <b className="text-emerald-700">Todos os avisos estão em dia.</b>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${
-                semFalhasTelegram && chaveAtiva
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`h-2 w-2 shrink-0 rounded-full ${semFalhasTelegram && chaveAtiva ? "bg-emerald-500" : "bg-red-600"}`}
-              ></span>
-              <span>Status Telegram: {semFalhasTelegram && chaveAtiva ? "Integrado (OK)" : "Atenção"}</span>
+    <section className="space-y-5">
+      {/* BANNER PRINCIPAL DO HISTÓRICO DE AVISOS (padronizado com o painel principal SAGA) */}
+      <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+        <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+        <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+        <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+        <div className="relative space-y-2.5 max-w-2xl">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+              <i className="fa-solid fa-bell text-[#FDBA74]"></i> Central de Comunicações
             </span>
-            {admin && (
-              <Link href="/bot-telegram" className="btn btn-sm btn-escuro w-full sm:w-auto">
-                <i className="fa-brands fa-telegram"></i> Painel Telegram
-              </Link>
+          </div>
+
+          <div>
+            <h3 className="text-xl md:text-2xl font-black tracking-tight">
+              {pendentes > 0 ? `${pendentes} aviso(s) pendente(s) de envio` : "Todos os avisos estão em dia"}
+            </h3>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+              <i className="fa-solid fa-layer-group text-[#FDBA74]"></i> {avisos.length} total
+            </span>
+            {pendentes > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-red-500/85 text-white text-xs font-extrabold tabular-nums">
+                <i className="fa-solid fa-clock"></i> {pendentes} pendente(s)
+              </span>
             )}
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+              <i className="fa-solid fa-check text-emerald-300"></i> {enviados} enviado(s)
+            </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
-          <div className="relative flex-1 min-w-[200px] sm:max-w-sm">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+        {admin && (
+          <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+            <Link
+              href="/bot-telegram"
+              className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+            >
+              <i className="fa-brands fa-telegram text-[#C2410C]"></i> Painel Telegram
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* BARRA DE BUSCA E FILTROS DO HISTÓRICO */}
+      <div className="p-5 space-y-3.5 cartao">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+              <i className="fa-solid fa-sliders"></i>
+            </span>
+            <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+              Filtrar Avisos Acadêmicos
+            </h3>
+          </div>
+          {(filtroStatus !== "TODOS" || busca.trim() !== "") && (
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroStatus("TODOS");
+                setBusca("");
+              }}
+              className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+            >
+              <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar por Turma, Disciplina ou Mensagem
+            </label>
             <input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               data-busca
-              placeholder="Buscar turma ou texto do aviso..."
-              className="campo campo-sm !pl-8 w-full"
+              placeholder="Ex: SIST. DE INFORM., LAB04, cancelada...  ( / )"
+              className="campo campo-sm w-full"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {([
-              ["TODOS", `Todos (${avisos.length})`],
-              ["PENDENTES", `Pendentes (${pendentes})`],
-              ["ENVIADOS", `Enviados (${avisos.length - pendentes})`],
-            ] as const).map(([val, rotulo]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => setFiltroStatus(val)}
-                className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
-                  filtroStatus === val
-                    ? "bg-[#1A2332] text-white shadow-xs"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {rotulo}
-              </button>
-            ))}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-solid fa-filter text-[#B45309] mr-1"></i> Status do Aviso
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+              {([
+                ["TODOS", `Todos (${avisos.length})`],
+                ["PENDENTES", `Pend. (${pendentes})`],
+                ["ENVIADOS", `Env. (${enviados})`],
+              ] as const).map(([val, rotulo]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setFiltroStatus(val)}
+                  className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition text-center truncate ${
+                    filtroStatus === val
+                      ? "bg-[#1A2332] text-white shadow-xs"
+                      : "text-gray-600 hover:text-[#1A2332]"
+                  }`}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -191,7 +237,6 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
         )}
         {avisosFiltrados.map((a) => {
           const [fundo, ponto] = SELO[a.status] ?? SELO.Pendente;
-          const [fundoTg, pontoTg, rotuloTg] = SELO_TELEGRAM[a.statusTelegram] ?? SELO_TELEGRAM.Integrado;
           const emEdicao = editandoId === a.id;
           return (
             <div key={a.id} className="cartao p-4 space-y-3">
@@ -204,13 +249,6 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                 <span className={`${fundo} inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-extrabold`}>
                   <span aria-hidden="true" className={`w-2 h-2 rounded-full ${ponto}`}></span>
                   {a.status}
-                </span>
-                <span
-                  title={a.detalheTelegram}
-                  className={`${fundoTg} inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-extrabold`}
-                >
-                  <span aria-hidden="true" className={`w-2 h-2 rounded-full ${pontoTg}`}></span>
-                  Telegram: {rotuloTg}
                 </span>
               </div>
 
@@ -268,9 +306,6 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                     >
                       <i className="fa-brands fa-telegram"></i> Telegram
                     </button>
-                    <button onClick={() => enviar(a)} disabled={pendente} className="btn btn-sm btn-escuro flex-1">
-                      <i className="fa-solid fa-paper-plane"></i> Manual
-                    </button>
                     <button
                       onClick={() => marcar(a, true)}
                       disabled={pendente}
@@ -306,21 +341,19 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
               <th className="p-3">Turma</th>
               <th className="p-3">Mensagem</th>
               <th className="p-3 text-center">Status</th>
-              <th className="p-3 text-center">Status Telegram</th>
               <th className="p-3 pr-5 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {avisosFiltrados.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-gray-400">
+                <td colSpan={5} className="p-6 text-center text-gray-400">
                   Nenhum aviso encontrado.
                 </td>
               </tr>
             )}
             {avisosFiltrados.map((a) => {
               const [fundo, ponto] = SELO[a.status] ?? SELO.Pendente;
-              const [fundoTg, pontoTg, rotuloTg] = SELO_TELEGRAM[a.statusTelegram] ?? SELO_TELEGRAM.Integrado;
               const emEdicao = editandoId === a.id;
               return (
                 <tr key={a.id} className="align-top">
@@ -355,15 +388,6 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                       {a.status}
                     </span>
                   </td>
-                  <td className="p-3 text-center">
-                    <span
-                      title={a.detalheTelegram}
-                      className={`${fundoTg} inline-flex items-center gap-1.5 whitespace-nowrap text-xs px-3 py-1 rounded-full font-extrabold`}
-                    >
-                      <span aria-hidden="true" className={`w-2 h-2 rounded-full ${pontoTg}`}></span>
-                      {rotuloTg}
-                    </span>
-                  </td>
                   <td className="p-3 pr-5">
                     <div className="flex justify-end gap-2">
                       {a.enfileirado ? (
@@ -394,9 +418,6 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
                             className="btn btn-sm btn-principal"
                           >
                             <i className="fa-brands fa-telegram"></i> Telegram
-                          </button>
-                          <button onClick={() => enviar(a)} disabled={pendente} className="btn btn-sm btn-escuro">
-                            <i className="fa-solid fa-paper-plane"></i> Manual
                           </button>
                           <button
                             onClick={() => marcar(a, true)}

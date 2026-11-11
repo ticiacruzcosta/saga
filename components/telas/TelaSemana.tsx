@@ -38,49 +38,109 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
   }, [dados, sDia, sProf, sTurma, sBusca, sAgrupar]);
 
   return (
-    <section className="space-y-4">
-      <div className="p-5 space-y-4 print:hidden cartao">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-sm font-bold text-[#1A2332] uppercase tracking-wider flex items-center gap-2">
-            <i className="fa-solid fa-filter text-[#B45309]"></i> Filtros do Quadro Geral
-          </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-600">Linhas por:</span>
-            {([["turma", "Turma"], ["prof", "Professor"], ["sala", "Sala / Lab"]] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setSAgrupar(v)}
-                className={`btn btn-sm ${sAgrupar === v ? "btn-escuro" : "btn-secundario"}`}>
-                {l}
-              </button>
-            ))}
-            <button onClick={() => window.print()} className="btn btn-secundario btn-sm">
-              <i className="fa-solid fa-print mr-1"></i>Imprimir
-            </button>
+    <section className="space-y-5">
+      {/* BANNER PRINCIPAL DO QUADRO SEMANAL (padronizado com o Dashboard e Grade) */}
+      <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+        <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+        <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+        <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+        <div className="relative space-y-2.5 max-w-2xl">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+              <i className="fa-solid fa-calendar-week text-[#FDBA74]"></i> Quadro Geral da Semana
+            </span>
           </div>
+
+          <div>
+            <h3 className="text-xl md:text-2xl font-black tracking-tight">
+              Semestre {dados.oferta}{sDia !== "TODOS" ? ` · ${OPCOES_DIA.find(([v]) => v === sDia)?.[1] ?? sDia}` : ""}
+            </h3>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+              <i className="fa-solid fa-book-open text-[#FDBA74]"></i> {semana.total} aula(s) exibida(s)
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+              <i className="fa-solid fa-layer-group text-[#FDBA74]"></i> {semana.colunas.length} dia(s) na grade
+            </span>
+            {dados.diaHoje && (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F39200]/30 border border-orange-200/40 text-white text-xs font-extrabold">
+                <i className="fa-solid fa-star text-[#FDBA74]"></i> Hoje: {OPCOES_DIA.find(([v]) => v === dados.diaHoje)?.[1] ?? dados.diaHoje}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={() => window.print()}
+            className="btn btn-sm bg-white/15 hover:bg-white/25 text-white border border-white/25 backdrop-blur-xs"
+          >
+            <i className="fa-solid fa-print text-[#FDBA74]"></i> Imprimir
+          </button>
+        </div>
+      </div>
+
+      {/* BARRA DE FILTROS DO QUADRO GERAL */}
+      <div className="p-5 space-y-3.5 print:hidden cartao">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+              <i className="fa-solid fa-sliders"></i>
+            </span>
+            <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+              Filtros do Quadro Geral
+            </h3>
+          </div>
+          {(sDia !== "TODOS" || sProf !== "TODOS" || sTurma !== "TODOS" || sBusca.trim() !== "") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSDia("TODOS");
+                setSProf("TODOS");
+                setSTurma("TODOS");
+                setSBusca("");
+              }}
+              className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+            >
+              <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Dia da Semana</label>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-regular fa-calendar text-[#B45309] mr-1"></i> Dia da Semana
+            </label>
             <select value={sDia} onChange={(e) => setSDia(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todos os Dias</option>
               {OPCOES_DIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Professor</label>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-solid fa-chalkboard-user text-[#B45309] mr-1"></i> Professor
+            </label>
             <select value={sProf} onChange={(e) => setSProf(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todos os Professores</option>
               {dados.professores.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Curso / Turma</label>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-solid fa-users text-[#B45309] mr-1"></i> Curso / Turma
+            </label>
             <select value={sTurma} onChange={(e) => setSTurma(e.target.value)} className="campo campo-sm w-full">
               <option value="TODOS">Todas as Turmas</option>
               {dados.grupos.map((g) => <option key={g.id} value={g.nome}>{g.nome}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Busca Direta</label>
+            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Busca Direta
+            </label>
             <input type="text" value={sBusca} onChange={(e) => setSBusca(e.target.value)} data-busca placeholder="Ex: LAB01, Irvine...  ( / )" className="campo campo-sm w-full" />
           </div>
         </div>
