@@ -52,6 +52,7 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
           <i className="fa-solid fa-cloud-arrow-up"></i>
         </div>
         <h3 className="text-lg font-bold text-[#1A2332]">Importar Planilha de Oferta (.XLSX)</h3>
+        <p className="text-xs text-gray-500">Cursos novos são identificados automaticamente. Confira a prévia antes de cadastrar e importar.</p>
         <input ref={inputArquivo} type="file" accept=".xlsx" className="hidden" onChange={(e) => escolherArquivo(e.target.files?.[0])} />
         <div
           onClick={() => inputArquivo.current?.click()}
@@ -108,7 +109,20 @@ export default function TelaImportar({ ofertaAtual }: { ofertaAtual: string }) {
                   </div>
                 ))}
               </div>
-              <p className="text-gray-500">Aba lida: <b>{previa.aba}</b>. Nada foi gravado ainda{previa.gravado ? " (agora já foi)" : ""}.</p>
+              <p className="text-gray-500">Aba lida: <b>{previa.aba}</b>. {previa.gravado ? "A oferta foi gravada." : "Nenhuma informação foi gravada nesta etapa."}</p>
+              {previa.cursosNovos && previa.cursosNovos.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 text-orange-900 rounded-[14px] p-4 space-y-2">
+                  <p className="font-bold">Cursos novos encontrados: {previa.cursosNovos.length}</p>
+                  <p>Ao clicar em <b>2. Importar</b>, estes cursos serão cadastrados junto com as turmas. Confira se os nomes e siglas estão corretos.</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {previa.cursosNovos.map((c) => <li key={c.nome}><b>{c.nome}</b> — sigla sugerida: <b>{c.sigla}</b></li>)}
+                  </ul>
+                  <p className="text-xs">Se houver um nome incorreto, corrija a planilha e confira o arquivo novamente.</p>
+                </div>
+              )}
+              {previa.cursosNovos?.length === 0 && !previa.gravado && (
+                <p className="text-green-700 font-medium">Todos os cursos da planilha já estão cadastrados. Nenhum curso será duplicado.</p>
+              )}
               {previa.ofertaExistente && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-[14px] p-3">
                   A oferta <b>{previa.codigo}</b> já existe ({previa.ofertaExistente.status}) com {previa.ofertaExistente.turmas} turmas

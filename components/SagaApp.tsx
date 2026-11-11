@@ -864,7 +864,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {tab === "importar" && <TelaImportar ofertaAtual={dados.oferta} />}
 
           {/* 5. HISTÓRICO DE AVISOS */}
-          {tab === "historico" && <TelaHistorico avisos={dados.avisos} />}
+          {tab === "historico" && <TelaHistorico avisos={dados.avisos} admin={usuario.admin} />}
 
           {/* CADASTROS BASE */}
           {tab === "turmas" && (

@@ -6,6 +6,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { marcarAviso } from "@/app/actions";
 import { avisar, confirmar } from "@/components/avisos";
 import type { AvisoVM } from "@/lib/tipos";
@@ -17,7 +18,7 @@ const SELO: Record<string, [string, string]> = {
   Entregue: ["bg-emerald-50 text-emerald-700", "bg-emerald-500"],
 };
 
-export default function TelaHistorico({ avisos }: { avisos: AvisoVM[] }) {
+export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; admin: boolean }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
   const pendentes = avisos.filter((a) => a.status === "Pendente").length;
@@ -40,7 +41,8 @@ export default function TelaHistorico({ avisos }: { avisos: AvisoVM[] }) {
 
   function marcar(a: AvisoVM, enviado: boolean) {
     iniciar(async () => {
-      await marcarAviso(a.id, enviado);
+      const resposta = await marcarAviso(a.id, enviado);
+      if (!resposta.ok) return avisar(resposta.erro ?? "Não foi possível alterar o aviso.", "erro");
       avisar(enviado ? `Aviso de ${a.turma} marcado como enviado` : "Aviso voltou para pendente");
       router.refresh();
     });
@@ -50,8 +52,8 @@ export default function TelaHistorico({ avisos }: { avisos: AvisoVM[] }) {
     <section className="space-y-4">
       {pendentes > 0 && (
         <p className="text-sm text-gray-600">
-          <b className="text-red-700">{pendentes} aviso(s) pendente(s).</b> O envio automático ainda não existe: use <b>Enviar</b> para abrir o
-          WhatsApp com a mensagem pronta e escolher o grupo da turma.
+          <b className="text-red-700">{pendentes} aviso(s) pendente(s).</b> Para disparo pelo bot, um administrador deve preparar e confirmar o lote em <b>Status do Bot</b>.
+          Para avisos ainda não colocados na fila, também é possível utilizar o envio manual.
         </p>
       )}
       <div className="cartao overflow-x-auto">
@@ -82,7 +84,9 @@ export default function TelaHistorico({ avisos }: { avisos: AvisoVM[] }) {
                   </td>
                   <td className="p-3 pr-5">
                     <div className="flex justify-end gap-2">
-                      {a.status === "Pendente" ? (
+                      {a.enfileirado ? (
+                        admin ? <Link href="/bot-whatsapp" className="btn btn-sm btn-secundario">Ver no bot</Link> : <span className="text-xs text-gray-500">Fila gerenciada pelo administrador</span>
+                      ) : a.status === "Pendente" ? (
                         <>
                           <button onClick={() => enviar(a)} disabled={pendente} className="btn btn-sm bg-green-700 text-white">
                             <i className="fa-brands fa-whatsapp"></i> Enviar
