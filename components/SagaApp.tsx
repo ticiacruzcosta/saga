@@ -1371,60 +1371,122 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               }))
               .filter((g) => g.turmas.length > 0);
 
+            const totalAlunos = dados.grupos.reduce((s, g) => s + (g.alunos ?? 0), 0);
+
             return (
               <section className="space-y-5">
-                {/* Barra de ferramentas superior */}
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                  <h3 className="font-bold text-[#1A2332]">Cursos & Turmas</h3>
-                  <div className="flex flex-wrap items-center gap-2 flex-1 sm:flex-initial justify-end">
-                    <div className="relative flex-1 sm:w-64 max-w-xs">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                {/* BANNER PRINCIPAL DE CURSOS E TURMAS */}
+                <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                  <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+                  <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+                  <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+                  <div className="relative space-y-2.5 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+                        <i className="fa-solid fa-graduation-cap text-[#FDBA74]"></i> Cadastros Acadêmicos
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight">
+                        Cursos e Turmas
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-bookmark text-[#FDBA74]"></i> {dados.cursos.length} curso(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-users-rectangle text-[#FDBA74]"></i> {dados.grupos.length} turma(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-user-graduate text-emerald-300"></i> {totalAlunos} aluno(s)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => abrirCadastro("curso")}
+                      className="btn btn-sm bg-white/15 hover:bg-white/25 text-white border border-white/25 font-extrabold backdrop-blur-xs"
+                    >
+                      <i className="fa-solid fa-graduation-cap"></i> Novo Curso
+                    </button>
+                    <button
+                      onClick={() => abrirCadastro("turma")}
+                      className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+                    >
+                      <i className="fa-solid fa-plus text-[#C2410C]"></i> Nova Turma
+                    </button>
+                  </div>
+                </div>
+
+                {/* BARRA DE BUSCA E VISUALIZAÇÃO */}
+                <div className="p-5 space-y-3.5 cartao">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+                        <i className="fa-solid fa-sliders"></i>
+                      </span>
+                      <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+                        Filtrar Cursos e Turmas
+                      </h3>
+                    </div>
+                    {(turmasCursoFiltro !== null || turmasBusca.trim() !== "") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTurmasCursoFiltro(null);
+                          setTurmasBusca("");
+                        }}
+                        className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-9">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar Curso, Sigla ou Turma
+                      </label>
                       <input
                         data-busca
                         value={turmasBusca}
                         onChange={(e) => setTurmasBusca(e.target.value)}
                         type="text"
-                        placeholder="Buscar curso, sigla ou turma..."
-                        className="w-full pl-9 pr-8 py-2 text-xs rounded-full border border-gray-200 bg-white focus:outline-none focus:border-[#F39200]"
+                        placeholder="Ex: SIST. DE INFORM., SI, 4º A, Vespertino...  ( / )"
+                        className="campo campo-sm w-full"
                       />
-                      {turmasBusca && (
+                    </div>
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-table-cells-large text-[#B45309] mr-1"></i> Modo de Exibição
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
                         <button
-                          onClick={() => setTurmasBusca("")}
-                          title="Limpar busca"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                          type="button"
+                          onClick={() => setTurmasModo("blocos")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            turmasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
                         >
-                          <i className="fa-solid fa-xmark"></i>
+                          <i className="fa-solid fa-grip"></i> Blocos
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => setTurmasModo("lista")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            turmasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-list"></i> Lista
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="inline-flex rounded-full border border-gray-200 bg-white p-0.5">
-                      <button
-                        onClick={() => setTurmasModo("lista")}
-                        title="Visualização em lista"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          turmasModo === "lista" ? "bg-[#1A2332] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"
-                        }`}
-                      >
-                        <i className="fa-solid fa-list"></i>
-                      </button>
-                      <button
-                        onClick={() => setTurmasModo("blocos")}
-                        title="Visualização em blocos compactos"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          turmasModo === "blocos" ? "bg-[#1A2332] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"
-                        }`}
-                      >
-                        <i className="fa-solid fa-grip"></i>
-                      </button>
-                    </div>
-
-                    <button onClick={() => abrirCadastro("curso")} className="btn btn-contorno">
-                      <i className="fa-solid fa-graduation-cap"></i> Novo Curso
-                    </button>
-                    <button onClick={() => abrirCadastro("turma")} className="btn btn-principal">
-                      <i className="fa-solid fa-plus"></i> Nova Turma
-                    </button>
                   </div>
                 </div>
 
@@ -1635,52 +1697,116 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             const profsFiltrados = dados.professores.filter(
               (p) => !termoProf || `${p.nome} ${p.email}`.toLowerCase().includes(termoProf)
             );
+            const profsComRestricao = dados.professores.filter((p) => p.dias.length > 0).length;
+            const totalAulasAlocadas = dados.turmas.filter((t) => !t.consome && t.profId != null).length;
+
             return (
-              <section className="space-y-4">
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                  <div>
-                    <h3 className="font-bold text-[#1A2332]">Corpo Docente</h3>
-                    <p className="text-xs text-gray-500">{dados.professores.length} docente(s) cadastrado(s) no semestre</p>
+              <section className="space-y-5">
+                {/* BANNER PRINCIPAL DE PROFESSORES */}
+                <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                  <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+                  <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+                  <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+                  <div className="relative space-y-2.5 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+                        <i className="fa-solid fa-chalkboard-user text-[#FDBA74]"></i> Cadastros Acadêmicos
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight">
+                        Corpo Docente
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-user-tie text-[#FDBA74]"></i> {dados.professores.length} docente(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-book-open text-emerald-300"></i> {totalAulasAlocadas} aula(s) atribuída(s)
+                      </span>
+                      {profsComRestricao > 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                          <i className="fa-solid fa-calendar-xmark text-amber-300"></i> {profsComRestricao} com restrição de dia
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+
+                  <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => abrirCadastro("professor")}
+                      className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+                    >
+                      <i className="fa-solid fa-plus text-[#C2410C]"></i> Novo Professor
+                    </button>
+                  </div>
+                </div>
+
+                {/* BARRA DE BUSCA E VISUALIZAÇÃO */}
+                <div className="p-5 space-y-3.5 cartao">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+                        <i className="fa-solid fa-sliders"></i>
+                      </span>
+                      <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+                        Filtrar Corpo Docente
+                      </h3>
+                    </div>
+                    {profBusca.trim() !== "" && (
+                      <button
+                        type="button"
+                        onClick={() => setProfBusca("")}
+                        className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar busca
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-9">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar Docente por Nome ou E-mail
+                      </label>
                       <input
                         type="text"
                         value={profBusca}
                         onChange={(e) => setProfBusca(e.target.value)}
                         data-busca
-                        placeholder="Buscar docente ou e-mail..."
-                        className="campo campo-sm !w-52 sm:!w-64 !pl-8 !rounded-full bg-white shadow-2xs"
+                        placeholder="Ex: Maria, @unisapiens.edu.br...  ( / )"
+                        className="campo campo-sm w-full"
                       />
                     </div>
-                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={() => setProfModo("lista")}
-                        title="Visualizar em lista"
-                        aria-label="Visualizar em lista"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          profModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
-                      >
-                        <i className="fa-solid fa-list"></i>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setProfModo("blocos")}
-                        title="Visualizar em blocos"
-                        aria-label="Visualizar em blocos"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          profModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
-                      >
-                        <i className="fa-solid fa-grip"></i>
-                      </button>
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-table-cells-large text-[#B45309] mr-1"></i> Modo de Exibição
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+                        <button
+                          type="button"
+                          onClick={() => setProfModo("blocos")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            profModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-grip"></i> Blocos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProfModo("lista")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            profModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-list"></i> Lista
+                        </button>
+                      </div>
                     </div>
-                    <button onClick={() => abrirCadastro("professor")} className="btn btn-principal">
-                      <i className="fa-solid fa-plus"></i> Novo Professor
-                    </button>
                   </div>
                 </div>
 
@@ -1798,52 +1924,142 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             const salasFiltradas = dados.salas
               .filter((s) => salasTipoFiltro === "TODOS" || s.tipo === salasTipoFiltro)
               .filter((s) => !termoSala || `${s.nome} ${s.tipo} ${s.predio}`.toLowerCase().includes(termoSala));
+            const totalLabs = dados.salas.filter((s) => s.tipo === "Laboratório/Prático").length;
+            const totalTeoricas = dados.salas.length - totalLabs;
+
             return (
-              <section className="space-y-4">
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                  <div>
-                    <h3 className="font-bold text-[#1A2332]">Salas & Laboratórios</h3>
-                    <p className="text-xs text-gray-500">{dados.salas.length} espaço(s) físico(s) controlado(s) pelo sistema</p>
+              <section className="space-y-5">
+                {/* BANNER PRINCIPAL DE SALAS E LABORATÓRIOS */}
+                <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                  <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+                  <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+                  <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+                  <div className="relative space-y-2.5 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+                        <i className="fa-solid fa-door-open text-[#FDBA74]"></i> Infraestrutura Acadêmica
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight">
+                        Salas e Laboratórios
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-building text-[#FDBA74]"></i> {dados.salas.length} espaço(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-computer text-emerald-300"></i> {totalLabs} laboratório(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-chalkboard text-[#FDBA74]"></i> {totalTeoricas} sala(s) específica(s)
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+
+                  <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => abrirCadastro("sala")}
+                      className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+                    >
+                      <i className="fa-solid fa-plus text-[#C2410C]"></i> Novo Espaço
+                    </button>
+                  </div>
+                </div>
+
+                {/* BARRA DE BUSCA E FILTROS DE ESPAÇOS */}
+                <div className="p-5 space-y-3.5 cartao">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+                        <i className="fa-solid fa-sliders"></i>
+                      </span>
+                      <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+                        Filtrar Espaços Físicos
+                      </h3>
+                    </div>
+                    {(salasTipoFiltro !== "TODOS" || salasBusca.trim() !== "") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSalasTipoFiltro("TODOS");
+                          setSalasBusca("");
+                        }}
+                        className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-5">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar por Código ou Prédio
+                      </label>
                       <input
                         type="text"
                         value={salasBusca}
                         onChange={(e) => setSalasBusca(e.target.value)}
                         data-busca
-                        placeholder="Buscar LAB, prédio..."
-                        className="campo campo-sm !w-48 sm:!w-60 !pl-8 !rounded-full bg-white shadow-2xs"
+                        placeholder="Ex: LAB04, SALA26, Central...  ( / )"
+                        className="campo campo-sm w-full"
                       />
                     </div>
-                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={() => setSalasModo("lista")}
-                        title="Visualizar em lista"
-                        aria-label="Visualizar em lista"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          salasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
-                      >
-                        <i className="fa-solid fa-list"></i>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSalasModo("blocos")}
-                        title="Visualizar em blocos"
-                        aria-label="Visualizar em blocos"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          salasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
-                      >
-                        <i className="fa-solid fa-grip"></i>
-                      </button>
+                    <div className="md:col-span-4">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-filter text-[#B45309] mr-1"></i> Categoria
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+                        {([
+                          ["TODOS", "Todos"],
+                          ["Laboratório/Prático", "Labs"],
+                          ["Presencial Teórico", "Salas"],
+                        ] as const).map(([val, rotulo]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setSalasTipoFiltro(val)}
+                            className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition text-center truncate ${
+                              salasTipoFiltro === val
+                                ? "bg-[#1A2332] text-white shadow-xs"
+                                : "text-gray-600 hover:text-[#1A2332]"
+                            }`}
+                          >
+                            {rotulo}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <button onClick={() => abrirCadastro("sala")} className="btn btn-principal">
-                      <i className="fa-solid fa-plus"></i> Novo Espaço
-                    </button>
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-table-cells-large text-[#B45309] mr-1"></i> Modo de Exibição
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+                        <button
+                          type="button"
+                          onClick={() => setSalasModo("blocos")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            salasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-grip"></i> Blocos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSalasModo("lista")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            salasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-list"></i> Lista
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1852,26 +2068,6 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     <span className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
                       Espaços Cadastrados ({salasFiltradas.length})
                     </span>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {([
-                        ["TODOS", "Todos"],
-                        ["Laboratório/Prático", "Laboratórios"],
-                        ["Presencial Teórico", "Salas Teóricas"],
-                      ] as const).map(([val, rotulo]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setSalasTipoFiltro(val)}
-                          className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
-                            salasTipoFiltro === val
-                              ? "bg-[#1A2332] text-white shadow-xs"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
-                        >
-                          {rotulo}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {salasFiltradas.length === 0 ? (
@@ -1988,62 +2184,127 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               .sort(porDiaHora);
 
             return (
-              <section className="space-y-4">
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                  <div>
-                    <h3 className="font-bold text-[#1A2332]">Ofertas & Disciplinas</h3>
-                    <p className="text-xs text-gray-500">{dados.turmas.length} oferta(s) de disciplina no semestre {dados.oferta}</p>
+              <section className="space-y-5">
+                {/* BANNER PRINCIPAL DE OFERTAS E DISCIPLINAS */}
+                <div className="print:hidden relative overflow-hidden rounded-3xl text-white px-6 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[linear-gradient(110deg,#1A2332_0%,#1A2332_45%,#7C2D12_78%,#C2410C_100%)]">
+                  <div aria-hidden="true" className="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none" />
+                  <div aria-hidden="true" className="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none" />
+                  <div aria-hidden="true" className="hidden md:block absolute right-56 -bottom-24 w-24 h-40 rounded-full rotate-[-35deg] bg-gradient-to-b from-[#FDBA74] to-[#F39200] opacity-85 pointer-events-none" />
+
+                  <div className="relative space-y-2.5 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+                        <i className="fa-solid fa-book text-[#FDBA74]"></i> Matriz e Alocação
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight">
+                        Ofertas e Disciplinas · {dados.oferta}
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-layer-group text-[#FDBA74]"></i> {dados.turmas.length} oferta(s) no semestre
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold tabular-nums">
+                        <i className="fa-solid fa-book-bookmark text-emerald-300"></i> {dados.disciplinas.length} disciplina(s) base
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+
+                  <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      onClick={abrirNovaOferta}
+                      className="btn btn-sm bg-white text-[#1A2332] hover:bg-orange-50 shadow-md font-extrabold"
+                    >
+                      <i className="fa-solid fa-plus text-[#C2410C]"></i> Cadastrar Oferta
+                    </button>
+                  </div>
+                </div>
+
+                {/* BARRA DE BUSCA E FILTROS DE OFERTAS */}
+                <div className="p-5 space-y-3.5 cartao">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-[#FFF4E5] text-[#B45309] flex items-center justify-center text-xs">
+                        <i className="fa-solid fa-sliders"></i>
+                      </span>
+                      <h3 className="text-xs font-extrabold text-[#1A2332] uppercase tracking-wider">
+                        Filtrar Ofertas e Disciplinas
+                      </h3>
+                    </div>
+                    {(ofertasDiaFiltro !== "TODOS" || ofertasCursoFiltro !== "TODOS" || ofertasBusca.trim() !== "") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOfertasDiaFiltro("TODOS");
+                          setOfertasCursoFiltro("TODOS");
+                          setOfertasBusca("");
+                        }}
+                        className="text-xs font-extrabold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-rotate-left text-[10px]"></i> Limpar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-6">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar Disciplina, Turma ou Docente
+                      </label>
                       <input
                         type="text"
                         value={ofertasBusca}
                         onChange={(e) => setOfertasBusca(e.target.value)}
                         data-busca
-                        placeholder="Buscar disciplina, turma, docente..."
-                        className="campo campo-sm !w-56 sm:!w-68 !pl-8 !rounded-full bg-white shadow-2xs"
+                        placeholder="Ex: Banco de Dados, SIST. DE INFORM., LAB01...  ( / )"
+                        className="campo campo-sm w-full"
                       />
                     </div>
-                    <select
-                      value={ofertasDiaFiltro}
-                      onChange={(e) => setOfertasDiaFiltro(e.target.value)}
-                      className="campo campo-sm !w-auto !rounded-full bg-white shadow-2xs text-xs font-bold"
-                    >
-                      <option value="TODOS">Todos os dias</option>
-                      {OPCOES_DIA.map(([v, l]) => (
-                        <option key={v} value={v}>{l}</option>
-                      ))}
-                      <option value="EAD">EAD / Sem dia</option>
-                    </select>
-                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={() => setOfertasModo("lista")}
-                        title="Visualizar em lista"
-                        aria-label="Visualizar em lista"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          ofertasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-calendar-day text-[#B45309] mr-1"></i> Dia da Semana
+                      </label>
+                      <select
+                        value={ofertasDiaFiltro}
+                        onChange={(e) => setOfertasDiaFiltro(e.target.value)}
+                        className="campo campo-sm w-full text-xs font-bold"
                       >
-                        <i className="fa-solid fa-list"></i>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOfertasModo("blocos")}
-                        title="Visualizar em blocos"
-                        aria-label="Visualizar em blocos"
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
-                          ofertasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
-                        }`}
-                      >
-                        <i className="fa-solid fa-grip"></i>
-                      </button>
+                        <option value="TODOS">Todos os dias</option>
+                        {OPCOES_DIA.map(([v, l]) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                        <option value="EAD">EAD / Sem dia</option>
+                      </select>
                     </div>
-                    <button onClick={abrirNovaOferta} className="btn btn-principal">
-                      <i className="fa-solid fa-plus"></i> Cadastrar Oferta
-                    </button>
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <i className="fa-solid fa-table-cells-large text-[#B45309] mr-1"></i> Modo de Exibição
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+                        <button
+                          type="button"
+                          onClick={() => setOfertasModo("blocos")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            ofertasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-grip"></i> Blocos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOfertasModo("lista")}
+                          className={`py-1.5 px-2 rounded-[10px] text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
+                            ofertasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-600 hover:text-[#1A2332]"
+                          }`}
+                        >
+                          <i className="fa-solid fa-list"></i> Lista
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

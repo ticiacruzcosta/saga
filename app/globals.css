@@ -15,14 +15,46 @@
   --saga-texto: #1f2937;
   --saga-cabecalho-tabela: #f4f6f9;
   --saga-degrade: linear-gradient(90deg, #c2410c, #1a2332);
+  --fonte-titulo: "Montserrat", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --fonte-corpo: "Lora", Georgia, Cambria, "Times New Roman", serif;
 }
 
 body {
-  font-family: "Plus Jakarta Sans", "Nunito", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--fonte-corpo);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  letter-spacing: -0.011em;
+  letter-spacing: 0.002em;
+}
+
+/* Par #1 do Pinterest (Montserrat + Lora):
+   - Montserrat (Bold/ExtraBold): títulos, cabeçalhos, botões, menu lateral, pílulas e rótulos.
+   - Lora (Regular/Medium): textos corridos, descrições, nomes de disciplinas e mensagens. */
+h1,
+h2,
+h3,
+h4,
+nav,
+aside,
+button,
+input,
+select,
+label,
+th,
+.font-black,
+.font-extrabold,
+.font-bold,
+.btn,
+.tabela-cab,
+.tabular-nums {
+  font-family: var(--fonte-titulo);
+  letter-spacing: -0.012em;
+}
+
+p,
+td,
+textarea,
+.fonte-lora {
+  font-family: var(--fonte-corpo);
 }
 
 .tabular-nums,
