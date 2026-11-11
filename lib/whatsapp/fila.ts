@@ -16,7 +16,7 @@ export async function prepararLote(avisoId: number) {
   return prisma.$transaction(async (tx) => {
     const lote = await tx.whatsappLote.create({ data: { avisoId, conteudo } });
     await tx.whatsappMensagem.createMany({
-      data: assinantes.map((a) => ({ loteId: lote.id, assinanteId: a.id })), skipDuplicates: true,
+      data: assinantes.map((a) => ({ loteId: lote.id, assinanteId: a.id })),
     });
     return lote;
   });

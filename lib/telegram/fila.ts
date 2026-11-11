@@ -12,7 +12,7 @@ export async function prepararTelegram(avisoId: number) {
   const conteudo = `SAGA • Aviso acadêmico\nTurma: ${aviso.grupo.nome}\n${aviso.conteudo}`.slice(0, 3900);
   return prisma.$transaction(async tx => {
     const lote = await tx.telegramLote.create({ data: { avisoId, conteudo } });
-    await tx.telegramMensagem.createMany({ data: assinantes.map(a => ({ loteId: lote.id, assinanteId: a.id })), skipDuplicates: true });
+    await tx.telegramMensagem.createMany({ data: assinantes.map(a => ({ loteId: lote.id, assinanteId: a.id })) });
     return lote;
   });
 }

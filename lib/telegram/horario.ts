@@ -3,7 +3,10 @@ import { imagemHorario } from "@/lib/whatsapp/imagem";
 import { diaHojePV, DIAS, proximaDataDia, minutosEmHora, DIA_NOME } from "@/lib/whatsapp/texto.mjs";
 
 /** Gera diretamente em memória: não publica a imagem e não exige URL aberta. */
-export async function horarioPng(grupoId: number, diaSolicitado?: string) {
+export async function horarioPng(
+  grupoId: number,
+  diaSolicitado?: string
+): Promise<{ erro: string } | { imagem: Uint8Array; legenda: string } | null> {
   const hoje = diaHojePV();
   const dia = diaSolicitado ?? hoje.dia;
   if (!dia || !DIAS.includes(dia)) return null;

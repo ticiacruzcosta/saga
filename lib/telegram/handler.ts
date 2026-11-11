@@ -59,7 +59,7 @@ export async function receberAtualizacao(update: Atualizacao) {
       if (!inscrito.grupoId) { await enviarMensagem(chatId, "Selecione primeiro sua turma: use /turmas e depois /turma ID."); return; }
       const result = await horarioPng(inscrito.grupoId, DIAS_TELEGRAM[nome]);
       if (!result) { await enviarMensagem(chatId, "Hoje não há aulas regulares. Use /segunda, /terca, /quarta, /quinta, /sexta ou /sabado."); return; }
-      if ("erro" in result) { await enviarMensagem(chatId, result.erro); return; }
+      if ("erro" in result) { await enviarMensagem(chatId, result.erro ?? "Erro ao gerar horário."); return; }
       await enviarFoto(chatId, result.imagem, result.legenda);
       return;
     }
