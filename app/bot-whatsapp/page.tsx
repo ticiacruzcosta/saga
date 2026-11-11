@@ -20,7 +20,7 @@ const feedbacks: Record<string, { mensagem: string; erro: boolean }> = {
   nao_encontrado: { mensagem: "Destinatário de teste não encontrado ou já desativado.", erro: true },
 };
 
-export default async function BotWhatsappPage({ searchParams }: { searchParams?: Promise<{ feedback?: string }> }) {
+export default async function BotWhatsappPage({ searchParams }: { searchParams?: Promise<{ feedback?: string; erro?: string; ok?: string }> }) {
   await exigirAdmin();
   const real = modoBot() === "REAL";
   const [inscritos, inscritosReais, testesAtivos, destinatariosTeste, avisos, lotes, aulas] = await Promise.all([
@@ -34,7 +34,8 @@ export default async function BotWhatsappPage({ searchParams }: { searchParams?:
       include: { grupo: true, disciplina: true }, orderBy: { id: "asc" }, take: 500 }),
   ]);
   const lotesPorAviso = new Map(lotes.map((x) => [x.avisoId, x]));
-  const feedback = feedbacks[(await searchParams)?.feedback ?? ""];
+  const params = (await searchParams) ?? {};
+  const feedback = feedbacks[params.feedback ?? ""] ?? (params.erro ? { mensagem: params.erro, erro: true } : params.ok ? { mensagem: params.ok, erro: false } : undefined);
   return <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-10">
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">

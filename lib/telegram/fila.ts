@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { modoTelegram, telegramConfigurado } from "@/lib/telegram/api";
+import { modoTelegram, obterTokenTelegram, telegramConfigurado } from "@/lib/telegram/api";
 import { enviarMensagemHttps } from "@/lib/telegram/transporte-https.mjs";
 
 export async function prepararTelegram(avisoId: number) {
@@ -65,7 +65,7 @@ export async function processarTelegram(limite = 10) {
       await prisma.telegramMensagem.update({ where: { id: m.id }, data: { status: "SIMULADO" } }); res.simuladas++; continue;
     }
     try {
-      const enviado = await enviarMensagemHttps(process.env.TELEGRAM_BOT_TOKEN ?? "", m.assinante.chatId, m.lote.conteudo);
+      const enviado = await enviarMensagemHttps(obterTokenTelegram(), m.assinante.chatId, m.lote.conteudo);
       await prisma.telegramMensagem.update({ where: { id: m.id }, data: { status: "ENVIADO", telegramId: String(enviado.message_id), erro: null } }); res.enviadas++;
     } catch (erro) {
       const msg = String(erro instanceof Error ? erro.message : "Erro desconhecido").slice(0, 230);

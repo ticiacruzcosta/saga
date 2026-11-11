@@ -7,11 +7,16 @@ import { ocorrenciaAction } from "@/app/bot-whatsapp/actions";
 import { diaHojePV } from "@/lib/whatsapp/texto.mjs";
 export const dynamic = "force-dynamic";
 const box = "rounded-xl border border-slate-200 bg-white p-5 shadow-sm";
-const btn = "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700";
+const btn = "rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50";
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
 
-export default async function TelegramPainel() {
+export default async function TelegramPainel({
+  searchParams,
+}: {
+  searchParams?: Promise<{ erro?: string; ok?: string }>;
+}) {
   await exigirAdmin();
+  const params = (await searchParams) ?? {};
   const modo = modoTelegram();
   const [total, avisos, lotes, grupos, aulas] = await Promise.all([
     prisma.telegramAssinante.count({ where: { ativo: true } }),
@@ -30,19 +35,32 @@ export default async function TelegramPainel() {
           <p className="text-sm text-slate-600">Aproveita as turmas e os avisos existentes. O WhatsApp fica disponível separadamente, sem disparos automáticos.</p></div>
         <span className={`rounded-full px-4 py-2 text-sm font-bold ${modo === "REAL" ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>Lotes: {modo === "REAL" ? "ENVIO REAL" : "SIMULAÇÃO"}</span>
       </header>
+      {params.erro && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+          {params.erro}
+        </div>
+      )}
+      {params.ok && (
+        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+          {params.ok}
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className={box}><p className="text-sm text-slate-500">Alunos inscritos</p><p className="text-3xl font-black">{total}</p></div>
         <div className={box}><p className="text-sm text-slate-500">Avisos pendentes</p><p className="text-3xl font-black">{avisos.length}</p></div>
-        <div className={box}><p className="text-sm text-slate-500">Token BotFather</p><p className="text-lg font-bold">{telegramConfigurado() ? "Configurado" : "Pendente"}</p></div>
+        <div className={box}><p className="text-sm text-slate-500">Token BotFather</p><p className="text-lg font-bold text-emerald-700">{telegramConfigurado() ? "Configurado (@saga_avisos_academicos_bot)" : "Pendente"}</p></div>
       </div>
       <section className={box}><h2 className="text-lg font-bold">1. Conectar alunos ao bot</h2>
-        <p className="mt-2 text-sm text-slate-600">Crie seu bot no @BotFather, configure TELEGRAM_BOT_TOKEN no .env e execute <code>npm run telegram:polling</code> em outro terminal para testes locais. No Telegram, abra o bot e envie <strong>/start</strong>. Isso autoriza a inscrição. O bot não pode iniciar uma conversa com quem nunca o abriu.</p>
+        <p className="mt-2 text-sm text-slate-600">
+          Abra o bot <a href="https://t.me/saga_avisos_academicos_bot" target="_blank" rel="noreferrer" className="font-bold text-sky-700 underline">@saga_avisos_academicos_bot</a> no Telegram e envie <strong>/start</strong> para autorizar a inscrição.
+        </p>
         <p className="mt-2 text-sm text-amber-800">O modo SIMULAÇÃO afeta apenas os disparos em lote; respostas a comandos enviados ao bot são mensagens reais.</p>
         {grupos.length > 0 && <p className="mt-3 text-xs text-slate-500">Últimos inscritos: {grupos.map(g => `${g.nome ?? "Aluno"}${g.grupo ? ` (${g.grupo.nome})` : ""}`).join(" · ")}</p>}
       </section>
       <section className={box}><h2 className="text-lg font-bold">2. Registrar mudança ou cancelamento</h2>
-        <p className="mb-3 text-sm text-slate-600">Registra a ocorrência no SAGA e cria o aviso pendente. Não dispara mensagens automaticamente.</p>
+        <p className="mb-3 text-sm text-slate-600">Registra a ocorrência no SAGA e cria o aviso pendente. Se a data escolhida não cair no dia da semana da aula, o sistema ajusta automaticamente para a próxima aula daquela disciplina.</p>
         <form action={ocorrenciaAction} className="grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="origem" value="telegram" />
           <label className="space-y-1 text-sm">Aula/turma <select name="turmaId" required className={input}>{aulas.map(a => <option value={a.id} key={a.id}>{a.grupo?.nome} — {a.nomeNaPlanilha ?? a.disciplina.nome} ({a.diaSemana})</option>)}</select></label>
           <label className="space-y-1 text-sm">Data <input type="date" name="data" required defaultValue={diaHojePV().iso} className={input}/></label>
           <label className="space-y-1 text-sm">Ocorrência <select name="tipo" className={input}><option value="CANCELAMENTO">Não haverá aula</option><option value="TROCA_SALA">Mudança de sala</option><option value="TROCA_HORARIO">Mudança de horário</option></select></label>
@@ -53,7 +71,7 @@ export default async function TelegramPainel() {
       </section>
       <section className={box}><h2 className="text-lg font-bold">3. Preparar aviso para todos os inscritos</h2>
         <p className="mb-3 text-sm text-slate-600">Cada aviso cria um lote próprio do Telegram. Os destinatários são capturados ao preparar; o envio exige confirmação explícita.</p>
-        {!total && <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Ainda não há inscritos. Abra o bot e envie /start antes de preparar lotes.</p>}
+        {!total && <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Ainda não há inscritos. Abra o bot <a href="https://t.me/saga_avisos_academicos_bot" target="_blank" rel="noreferrer" className="font-bold underline">@saga_avisos_academicos_bot</a> e envie /start antes de preparar lotes.</p>}
         <div className="space-y-3">{avisos.map(a => { const lote = lotesPorAviso.get(a.id); return <div key={a.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3">
           <div className="max-w-2xl"><p className="text-sm font-bold">Aviso #{a.id} · {a.grupo.nome}</p><p className="whitespace-pre-line text-sm text-slate-600">{a.conteudo}</p></div>
           {lote ? <span className="text-sm font-bold text-sky-700">Lote #{lote.id} • {lote.status}</span> : <form action={prepararTelegramAction}><input type="hidden" name="avisoId" value={a.id}/><button disabled={!total} className={btn}>Preparar para {total} aluno(s)</button></form>}

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import { obterWebhookSecretTelegram } from "@/lib/telegram/api";
 import { receberAtualizacao } from "@/lib/telegram/handler";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const esperado = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const esperado = obterWebhookSecretTelegram();
   const header = req.headers.get("x-telegram-bot-api-secret-token") ?? "";
   const a = Buffer.from(esperado ?? "");
   const b = Buffer.from(header);

@@ -5,7 +5,7 @@ import { exigirAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { confirmarLote, prepararLote, processarFila } from "@/lib/whatsapp/fila";
 import { modoBot } from "@/lib/whatsapp/meta";
-import { diaNaData, minutosEmHora, normalizarTelefoneTesteBR } from "@/lib/whatsapp/texto.mjs";
+import { diaHojePV, diaNaData, minutosEmHora, normalizarTelefoneTesteBR, proximaDataDia } from "@/lib/whatsapp/texto.mjs";
 
 function idCampo(form: FormData, nome: string) {
   const id = Number(form.get(nome));
@@ -68,15 +68,28 @@ export async function desativarDestinatarioTesteAction(form: FormData) {
 /** Cadastra ocorrência pontual e gera Aviso PENDENTE existente no SAGA. */
 export async function ocorrenciaAction(form: FormData) {
   await exigirAdmin();
-  const turmaId = idCampo(form, "turmaId");
+  const origem = String(form.get("origem") ?? "") === "telegram" ? "/bot-telegram" : "/bot-whatsapp";
+  const falhar = (msg: string): never => {
+    redirect(`${origem}?erro=${encodeURIComponent(msg)}`);
+  };
+
+  const turmaId = Number(form.get("turmaId"));
+  if (!Number.isSafeInteger(turmaId) || turmaId < 1) return falhar("Selecione uma aula válida.");
   const tipo = String(form.get("tipo") ?? "");
-  if (!["CANCELAMENTO", "TROCA_SALA", "TROCA_HORARIO"].includes(tipo)) throw new Error("Tipo de ocorrência inválido.");
-  const iso = String(form.get("data") ?? "");
+  if (!["CANCELAMENTO", "TROCA_SALA", "TROCA_HORARIO"].includes(tipo)) return falhar("Tipo de ocorrência inválido.");
+
+  const isoInput = String(form.get("data") ?? "").trim() || diaHojePV().iso;
   const turma = await prisma.turma.findUnique({
     where: { id: turmaId }, include: { disciplina: true, grupo: true, professor: true, ambiente: true, oferta: true },
   });
-  if (!turma?.grupoId || !turma.grupo || turma.oferta.status !== "PUBLICADA") throw new Error("Selecione uma aula da oferta publicada.");
-  if (!diaNaData(iso) || turma.diaSemana !== diaNaData(iso)) throw new Error("Escolha uma data válida que corresponda ao dia da aula.");
+  if (!turma?.grupoId || !turma.grupo || turma.oferta.status !== "PUBLICADA") {
+    return falhar("Selecione uma aula da oferta publicada.");
+  }
+
+  // Se a data informada não cair no dia da semana da aula, ajusta automaticamente para a próxima ocorrência daquele dia.
+  const iso = (turma.diaSemana ? proximaDataDia(turma.diaSemana, isoInput) : null) ?? (diaNaData(isoInput) ? isoInput : null);
+  if (!iso) return falhar("Escolha uma data válida.");
+
   const motivo = String(form.get("motivo") ?? "").trim().slice(0, 240);
   const aula = turma.nomeNaPlanilha ?? turma.disciplina.nome;
   let anterior: string | null = null;
@@ -89,15 +102,17 @@ export async function ocorrenciaAction(form: FormData) {
   if (tipo === "TROCA_SALA") {
     anterior = turma.ambiente?.codigo ?? "Sala comum";
     novo = String(form.get("valorNovo") ?? "").trim().toUpperCase().slice(0, 80);
-    if (!novo) throw new Error("Informe a nova sala.");
+    if (!novo) return falhar("Informe a nova sala no campo 'Nova sala ou novo horário'.");
     descricao = `A sala de ${aula} (${turma.grupo.nome}) mudou: ${anterior} → ${novo}, em ${iso.split("-").reverse().join("/")}.`;
   }
   if (tipo === "TROCA_HORARIO") {
     anterior = `${minutosEmHora(turma.horaInicio)} – ${minutosEmHora(turma.horaFim)}`;
     novo = String(form.get("valorNovo") ?? "").trim();
-    if (!/^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/.test(novo)) throw new Error("Use HH:MM-HH:MM (ex.: 19:00-21:45).");
+    if (!/^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/.test(novo)) {
+      return falhar("Informe o novo horário no formato HH:MM-HH:MM (ex.: 19:00-21:45).");
+    }
     const [inicio, fim] = novo.split("-").map((x) => x.trim());
-    if (fim <= inicio) throw new Error("A hora final deve ser posterior à inicial.");
+    if (fim <= inicio) return falhar("A hora final deve ser posterior à inicial.");
     descricao = `O horário de ${aula} (${turma.grupo.nome}) mudou: ${anterior} → ${novo}, em ${iso.split("-").reverse().join("/")}.`;
   }
   if (motivo) descricao += ` Motivo: ${motivo}`;
@@ -108,6 +123,8 @@ export async function ocorrenciaAction(form: FormData) {
     await tx.alteracao.create({ data: { turmaId, data, tipo, valorAnterior: anterior, valorNovo: novo, motivo, mensagemGerada: descricao } });
     await tx.aviso.create({ data: { grupoId: turma.grupoId!, conteudo: descricao, status: "PENDENTE" } });
   });
+  revalidatePath("/bot-telegram");
   revalidatePath("/bot-whatsapp");
   revalidatePath("/");
+  redirect(`${origem}?ok=${encodeURIComponent(`Ocorrência registrada para ${iso.split("-").reverse().join("/")} e aviso pendente criado.`)}`);
 }
