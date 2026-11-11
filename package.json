@@ -5,14 +5,18 @@
   "description": "SAGA - Sistema de Avisos e Gestão Acadêmica (Faculdade Unisapiens)",
   "scripts": {
     "dev": "prisma generate && next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma db push && next build",
     "start": "next start",
     "banco": "python seed.py --recriar --relatorio conferencia.xlsx",
     "banco:studio": "prisma studio",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/*.test.ts && node --test tests/bot-whatsapp.test.mjs && npm run test:telegram",
+    "test:bot": "node --test tests/bot-whatsapp.test.mjs",
     "postinstall": "prisma generate",
     "banco:tabelas": "prisma db push",
-    "migrar": "prisma db push && tsx scripts/migrar-para-postgres.ts"
+    "migrar": "prisma db push && tsx scripts/migrar-para-postgres.ts",
+    "telegram:polling": "node --env-file=.env --import tsx scripts/telegram-polling.ts",
+    "telegram:webhook": "node --env-file=.env scripts/telegram-webhook.mjs",
+    "test:telegram": "node --test tests/telegram.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

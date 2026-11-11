@@ -249,29 +249,51 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
 
 export async function salvarAlteracao(input: { turmaId: number; salaId: number | null; profId: number | null }) {
   const eu = await exigirUsuario();
-  const turma = await prisma.turma.findUnique({ where: { id: input.turmaId }, include: { ambiente: true, professor: true } });
+  const turma = await prisma.turma.findUnique({
+    where: { id: input.turmaId }, include: { ambiente: true, professor: true, disciplina: true, grupo: true },
+  });
   if (!turma) return { ok: false, erro: "Turma não encontrada." };
   const sala = input.salaId ? await prisma.ambiente.findUnique({ where: { id: input.salaId } }) : null;
   const prof = input.profId ? await prisma.professor.findUnique({ where: { id: input.profId } }) : null;
-  const data = hojeData();
-  // Voltar para a sala/professor da grade desfaz a troca de hoje
-  const desfazer = (tipo: string) => prisma.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo } });
+  if (input.salaId && !sala) return { ok: false, erro: "Sala não encontrada." };
+  if (input.profId && !prof) return { ok: false, erro: "Professor não encontrado." };
 
-  if (sala && sala.id !== turma.ambienteId) {
-    await prisma.alteracao.create({
-      data: { turmaId: turma.id, data, tipo: "TROCA_SALA", valorAnterior: turma.ambiente?.codigo ?? null, valorNovo: sala.codigo },
-    });
-  } else {
-    await desfazer("TROCA_SALA");
-  }
-  if (prof && prof.id !== turma.professorId) {
-    await prisma.alteracao.create({
-      data: { turmaId: turma.id, data, tipo: "TROCA_PROFESSOR", valorAnterior: turma.professor?.nome ?? null, valorNovo: prof.nome },
-    });
-  } else {
-    await desfazer("TROCA_PROFESSOR");
-  }
-  await registrar(eu, "Troca do dia", `${turma.nomeNaPlanilha ?? `Aula ${turma.id}`}: sala ${sala?.codigo ?? "da grade"}, professor ${prof?.nome ?? "da grade"} (só hoje)`);
+  const data = hojeData();
+  const atuais = await prisma.alteracao.findMany({
+    where: { turmaId: turma.id, data, tipo: { in: ["TROCA_SALA", "TROCA_PROFESSOR"] } }, orderBy: { criadaEm: "asc" },
+  });
+  const salaBase = turma.ambiente?.codigo ?? "Sala comum";
+  const profBase = turma.professor?.nome ?? "A definir";
+  const salaAtual = atuais.filter((a) => a.tipo === "TROCA_SALA").at(-1)?.valorNovo ?? salaBase;
+  const profAtual = atuais.filter((a) => a.tipo === "TROCA_PROFESSOR").at(-1)?.valorNovo ?? profBase;
+  const salaNova = sala?.codigo ?? salaBase;
+  const profNovo = prof?.nome ?? profBase;
+  const salaMudou = salaNova !== salaAtual;
+  const profMudou = profNovo !== profAtual;
+  if (!salaMudou && !profMudou) return { ok: true };
+
+  const aula = turma.nomeNaPlanilha ?? turma.disciplina.nome;
+  const detalhes: string[] = [];
+  if (salaMudou) detalhes.push(`Sala: ${salaAtual} → ${salaNova}`);
+  if (profMudou) detalhes.push(`Professor: ${profAtual} → ${profNovo}`);
+  const mensagem = `Alteração de aula em ${data.toISOString().slice(0, 10).split("-").reverse().join("/")}: ${aula} (${turma.grupo?.nome ?? "Turma"}). ${detalhes.join("; ")}.`;
+  await prisma.$transaction(async (tx) => {
+    if (salaMudou) {
+      await tx.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo: "TROCA_SALA" } });
+      if (salaNova !== salaBase) await tx.alteracao.create({
+        data: { turmaId: turma.id, data, tipo: "TROCA_SALA", valorAnterior: salaBase, valorNovo: salaNova, mensagemGerada: mensagem },
+      });
+    }
+    if (profMudou) {
+      await tx.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo: "TROCA_PROFESSOR" } });
+      if (profNovo !== profBase) await tx.alteracao.create({
+        data: { turmaId: turma.id, data, tipo: "TROCA_PROFESSOR", valorAnterior: profBase, valorNovo: profNovo, mensagemGerada: mensagem },
+      });
+    }
+    // Cria UM aviso pendente para revisão no painel; nunca envia automaticamente aqui.
+    if (turma.grupoId) await tx.aviso.create({ data: { grupoId: turma.grupoId, conteudo: mensagem, status: "PENDENTE" } });
+  });
+  await registrar(eu, "Troca do dia", mensagem);
   atualizar();
   return { ok: true };
 }
@@ -288,6 +310,8 @@ export async function enviarAviso(input: { turmaId: number; mensagem: string }) 
 /** Envio manual pelo WhatsApp: depois de mandar no grupo, a pessoa marca o aviso como enviado (ou volta para pendente). */
 export async function marcarAviso(id: number, enviado: boolean) {
   const eu = await exigirUsuario();
+  const jaEnfileirado = await prisma.whatsappLote.findUnique({ where: { avisoId: id }, select: { id: true } });
+  if (jaEnfileirado) return { ok: false, erro: "Este aviso já entrou na fila do bot. Gerencie-o no painel WhatsApp." };
   const aviso = await prisma.aviso.update({
     where: { id },
     data: { status: enviado ? "ENVIADO" : "PENDENTE" },

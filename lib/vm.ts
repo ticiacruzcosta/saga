@@ -32,7 +32,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     ofertaAtual(), ofertaPublicada(), prisma.oferta.findMany({ orderBy: { codigo: "desc" } }),
   ]);
 
-  const [ambientes, professores, grupos, avisos, disciplinas, usuarios] = await Promise.all([
+  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, lotesWhatsapp] = await Promise.all([
     prisma.ambiente.findMany({ where: { NOT: { codigo: { in: ["EAD", "SALA_COMUM"] } } }, orderBy: { codigo: "asc" } }),
     prisma.professor.findMany({ orderBy: { nome: "asc" } }),
     prisma.grupoAlunos.findMany({ orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
@@ -40,7 +40,9 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     prisma.disciplina.findMany({ select: { nome: true }, orderBy: { nome: "asc" } }),
     // pedidos de acesso pendentes primeiro
     admin ? prisma.usuario.findMany({ orderBy: [{ ativo: "asc" }, { nome: "asc" }] }) : [],
+    prisma.whatsappLote.findMany({ select: { avisoId: true } }).catch(() => []),
   ]);
+  const avisosNaFila = new Set(lotesWhatsapp.map((l) => l.avisoId));
 
   const base: DadosSaga = {
     oferta: oferta?.codigo ?? "—",
@@ -61,6 +63,7 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     avisos: avisos.map((a) => ({
       id: a.id, quando: dataHora(a.criadoEm), turma: a.grupo.nome, mensagem: a.conteudo,
       status: a.status === "ENTREGUE" ? "Entregue" : a.status === "ENVIADO" ? "Enviado" : a.status === "FALHOU" ? "Falhou" : "Pendente",
+      enfileirado: avisosNaFila.has(a.id),
     })),
     disciplinas: [...new Set(disciplinas.map((d) => d.nome))],
     usuarios: usuarios.map((u) => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo, admin: u.perfil === "ADMIN", desde: dataHora(u.criadoEm).slice(0, 10) })),

@@ -16,3 +16,6 @@ conferencia.xlsx
 __pycache__/
 .DS_Store
 npm-debug.log*
+
+# Backups locais gerados pelo instalador do bot
+.saga-whatsapp-backups/

@@ -12,6 +12,7 @@ import { registrar } from "@/lib/atividade";
 import type { UsuarioLogado } from "@/lib/auth";
 import { COOKIE_OFERTA } from "@/lib/dados";
 import { chaveDisciplina, lerPlanilhaOferta, semSufixoCurso, type LinhaPlanilha } from "@/lib/planilha-oferta";
+import { chaveCurso, planejarCursos } from "@/lib/cursos-importacao";
 import { validarOferta, type DiaSemana, type Formato, type TurmaParaValidar } from "@/lib/validacao-choque";
 import type { PreviaImportacao } from "@/lib/tipos";
 
@@ -30,7 +31,7 @@ function lerFormulario(form: FormData): Entrada | string {
 }
 
 /** Disciplina de cada linha: pelo código da matriz do curso, ou pelo que já foi importado antes. */
-async function resolverDisciplinas(linhas: LinhaPlanilha[]) {
+async function resolverDisciplinas(linhas: LinhaPlanilha[], nomeCurso: (linha: LinhaPlanilha) => string) {
   const [matriz, avulsas, historico] = await Promise.all([
     prisma.matrizItem.findMany({ include: { curso: true, disciplina: true }, orderBy: { id: "asc" } }),
     prisma.disciplina.findMany({ where: { codigo: null }, orderBy: { id: "asc" } }),
@@ -59,8 +60,8 @@ async function resolverDisciplinas(linhas: LinhaPlanilha[]) {
 
   const disc = new Map<number, number | null>(); // linha -> disciplinaId com código
   for (const l of linhas) {
-    let id = porCurso.get(l.curso)?.get(l.chave) ?? null;
-    if (id == null && porCurso.has(l.curso)) id = global.get(l.chave) ?? null; // curso com matriz usando disciplina de outro
+    let id = porCurso.get(nomeCurso(l))?.get(l.chave) ?? null;
+    if (id == null && porCurso.has(nomeCurso(l))) id = global.get(l.chave) ?? null; // curso com matriz usando disciplina de outro
     disc.set(l.linha, id);
   }
 
@@ -73,8 +74,8 @@ async function resolverDisciplinas(linhas: LinhaPlanilha[]) {
     grupos.set(k, [...(grupos.get(k) ?? []), l]);
   }
   for (const membros of grupos.values()) {
-    if (new Set(membros.map((m) => m.curso)).size < 2) continue;
-    const comMatriz = membros.filter((m) => porCurso.has(m.curso));
+    if (new Set(membros.map((m) => nomeCurso(m))).size < 2) continue;
+    const comMatriz = membros.filter((m) => porCurso.has(nomeCurso(m)));
     const d = (comMatriz.length ? comMatriz : membros).reduce((a, b) => (b.linha < a.linha ? b : a));
     for (const m of membros) {
       dono.set(m.linha, m === d ? null : d.linha);
@@ -105,24 +106,28 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
     prisma.rodizio.findMany(),
     prisma.oferta.findUnique({ where: { codigo: entrada.codigo }, include: { _count: { select: { turmas: true } } } }),
   ]);
-  const cursoPorNome = new Map(cursos.map((c) => [c.nome, c]));
+  // Aceita cursos que ainda não existem; a primeira etapa apenas apresenta os novos.
+  const linhas = leitura.linhas;
+  if (linhas.length === 0) return { ok: false, erro: "Nenhuma linha de turma encontrada na planilha.", problemas };
+
+  let planoCursos: ReturnType<typeof planejarCursos>;
+  try {
+    planoCursos = planejarCursos(cursos, linhas.map((l) => l.curso));
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : "Não foi possível conferir os cursos da planilha." };
+  }
+  const cursoDaLinha = (l: LinhaPlanilha) => planoCursos.porChave.get(chaveCurso(l.curso))!;
+  const nomeCurso = (l: LinhaPlanilha) => cursoDaLinha(l).nome;
+  const idCursoTemporario = new Map(planoCursos.novos.map((c, i) => [c.chave, -5000 - i]));
   const ambPorCodigo = new Map(ambientes.map((a) => [a.codigo, a]));
   const profPorNome = new Map(professores.map((p) => [p.nome, p]));
   const grupoPorNome = new Map(grupos.map((g) => [g.nome, g]));
   const discPorId = new Map(discs.map((d) => [d.id, d]));
 
-  // Linhas de curso que não existe no sistema ficam de fora (e aparecem na lista)
-  const linhas = leitura.linhas.filter((l) => {
-    if (cursoPorNome.has(l.curso)) return true;
-    problemas.push({ linha: l.linha, mensagem: `Curso "${l.curso}" não cadastrado: linha ignorada.` });
-    return false;
-  });
-  if (linhas.length === 0) return { ok: false, erro: "Nenhuma linha de turma reconhecida na planilha.", problemas };
-
-  const { disc, dono, avulsaPorChave } = await resolverDisciplinas(linhas);
+  const { disc, dono, avulsaPorChave } = await resolverDisciplinas(linhas, nomeCurso);
 
   // O que é novo
-  const nomeGrupo = (l: LinhaPlanilha) => `${l.curso} ${l.periodo ?? "?"}º ${l.letra}${l.turno === "VESPERTINO" ? " VESP" : ""}`;
+  const nomeGrupo = (l: LinhaPlanilha) => `${nomeCurso(l)} ${l.periodo ?? "?"}º ${l.letra}${l.turno === "VESPERTINO" ? " VESP" : ""}`;
   const novas = { professores: new Set<string>(), disciplinas: new Map<string, string>(), salas: new Set<string>(), grupos: new Set<string>() };
   for (const l of linhas) {
     if (l.professor && !profPorNome.has(l.professor)) novas.professores.add(l.professor);
@@ -140,7 +145,7 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
     const amb = l.lab ? ambPorCodigo.get(l.lab.codigo) : undefined;
     return {
       id: l.linha, disciplinaId: discDaLinha(l), disciplinaNome: l.disciplina, disciplinaCodigo: d?.codigo ?? "",
-      cursoId: cursoPorNome.get(l.curso)!.id, periodo: l.periodo ?? 0, letra: l.letra,
+      cursoId: cursoDaLinha(l).id ?? idCursoTemporario.get(cursoDaLinha(l).chave)!, periodo: l.periodo ?? 0, letra: l.letra,
       formato: (l.formato ?? d?.formato ?? "PRESENCIAL") as Formato,
       professorId: l.professor ? profPorNome.get(l.professor)?.id ?? -1000 - [...novas.professores].indexOf(l.professor) : null,
       professorNome: l.professor ?? undefined,
@@ -168,6 +173,7 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
       : null,
     turmas: linhas.length,
     comunalidade: [...dono.values()].filter((d) => d != null).length,
+    cursosNovos: planoCursos.novos.map((c) => ({ nome: c.nome, sigla: c.sigla })),
     professoresNovos: [...novas.professores].sort(),
     disciplinasNovas: [...novas.disciplinas.values()].sort(),
     salasNovas: [...novas.salas].sort(),
@@ -184,6 +190,14 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
   // ------------------------------------------------------------------ gravação
   await prisma.$transaction(
     async (tx) => {
+      // Os cursos são criados somente depois da confirmação, junto com a oferta.
+      // Uma falha em qualquer outra etapa desfaz também estes cadastros.
+      const cursoId = new Map(cursos.map((c) => [c.nome, c.id]));
+      for (const curso of planoCursos.novos) {
+        const criado = await tx.curso.create({ data: { nome: curso.nome, sigla: curso.sigla } });
+        cursoId.set(curso.nome, criado.id);
+      }
+
       const profId = new Map(professores.map((p) => [p.nome, p.id]));
       for (const nome of novas.professores) profId.set(nome, (await tx.professor.create({ data: { nome } })).id);
 
@@ -210,7 +224,7 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
         const nome = nomeGrupo(l);
         if (grupoId.has(nome)) continue;
         const g = await tx.grupoAlunos.create({
-          data: { nome, cursoId: cursoPorNome.get(l.curso)!.id, periodo: l.periodo, letra: l.letra, turno: l.turno },
+          data: { nome, cursoId: cursoId.get(nomeCurso(l))!, periodo: l.periodo, letra: l.letra, turno: l.turno },
         });
         grupoId.set(nome, g.id);
       }
@@ -267,7 +281,7 @@ async function processar(form: FormData, gravar: boolean, eu?: UsuarioLogado): P
 
   // a tela passa a mostrar o semestre que acabou de ser importado
   (await cookies()).set(COOKIE_OFERTA, entrada.codigo, { path: "/", maxAge: 60 * 60 * 24 * 365 });
-  await registrar(eu ?? null, "Importação", `Oferta ${entrada.codigo}: ${linhas.length} aulas da planilha ${entrada.arquivo.name}${ofertaExistente ? " (substituiu a anterior)" : ""}`);
+  await registrar(eu ?? null, "Importação", `Oferta ${entrada.codigo}: ${linhas.length} aulas, ${planoCursos.novos.length} curso(s) novo(s) da planilha ${entrada.arquivo.name}${ofertaExistente ? " (substituiu a anterior)" : ""}`);
   revalidatePath("/");
   return { ...previa, gravado: true };
 }

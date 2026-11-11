@@ -186,6 +186,7 @@ model GrupoAlunos {
 
   turmas Turma[]
   avisos Aviso[]
+  telegramAssinantes TelegramAssinante[]
 
   @@map("grupos_alunos")
 }
@@ -361,4 +362,113 @@ model Atividade {
 
   @@index([criadaEm])
   @@map("atividades")
+}
+
+
+// SAGA WhatsApp - adicionar ao FIM de prisma/schema.prisma (sem criar outro datasource).
+// Lista de assinantes com adesão explícita: nunca importar números de grupos indiscriminadamente.
+model WhatsappAssinante {
+  id            Int       @id @default(autoincrement())
+  telefone      String    @unique
+  ativo         Boolean   @default(true)
+  // Destinatarios de teste cadastrados no painel NUNCA recebem mensagens reais.
+  apenasSimulacao Boolean @default(false)
+  aceitouEm     DateTime  @default(now())
+  cancelouEm    DateTime?
+  atualizadoEm  DateTime  @updatedAt
+  mensagens     WhatsappMensagem[]
+  @@map("whatsapp_assinantes")
+}
+
+// Um aviso SAGA tem no máximo um lote de disparos. O conteúdo é fotografado na preparação.
+model WhatsappLote {
+  id          Int       @id @default(autoincrement())
+  avisoId     Int       @unique
+  conteudo    String
+  status      String    @default("PREPARADO") // PREPARADO | CONFIRMADO | CONCLUIDO
+  criadoEm    DateTime  @default(now())
+  confirmadoEm DateTime?
+  modoConfirmado String? // SIMULACAO ou REAL; congelado na confirmação para prevenir disparos acidentais
+  mensagens   WhatsappMensagem[]
+  @@map("whatsapp_lotes")
+}
+
+model WhatsappMensagem {
+  id          Int       @id @default(autoincrement())
+  loteId      Int
+  lote        WhatsappLote @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  assinanteId Int
+  assinante   WhatsappAssinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDENTE") // PENDENTE | PROCESSANDO | SIMULADO | ENVIADO | ENTREGUE | LIDO | FALHOU | CANCELADO
+  metaId      String?   @unique
+  tentativas  Int       @default(0)
+  erro        String?
+  criadoEm    DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+  @@unique([loteId, assinanteId])
+  @@index([status, criadoEm])
+  @@map("whatsapp_mensagens")
+}
+
+// Evita processar duas vezes a mesma mensagem recebida em retries da Meta.
+model WhatsappEvento {
+  id         String   @id
+  recebidoEm DateTime @default(now())
+  @@map("whatsapp_eventos")
+}
+
+
+
+// =============================================================================
+// TELEGRAM - canal independente do WhatsApp.
+// O inscrito deve iniciar a conversa por conta própria (/start).
+// =============================================================================
+model TelegramAssinante {
+  id          Int       @id @default(autoincrement())
+  chatId      String    @unique
+  nome        String?
+  ativo       Boolean   @default(true)
+  grupoId     Int?
+  grupo       GrupoAlunos? @relation(fields: [grupoId], references: [id], onDelete: SetNull)
+  aceitouEm   DateTime  @default(now())
+  cancelouEm  DateTime?
+  atualizadoEm DateTime @updatedAt
+  mensagens   TelegramMensagem[]
+  @@index([ativo])
+  @@map("telegram_assinantes")
+}
+
+model TelegramLote {
+  id            Int       @id @default(autoincrement())
+  avisoId       Int       @unique
+  conteudo      String
+  status        String    @default("PREPARADO") // PREPARADO | CONFIRMADO | CONCLUIDO
+  modoConfirmado String? // SIMULACAO | REAL: não muda depois de confirmar
+  criadoEm      DateTime  @default(now())
+  confirmadoEm  DateTime?
+  mensagens     TelegramMensagem[]
+  @@map("telegram_lotes")
+}
+
+model TelegramMensagem {
+  id           Int      @id @default(autoincrement())
+  loteId       Int
+  lote         TelegramLote @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  assinanteId  Int
+  assinante    TelegramAssinante @relation(fields: [assinanteId], references: [id], onDelete: Cascade)
+  status       String   @default("PENDENTE") // PENDENTE | PROCESSANDO | SIMULADO | ENVIADO | FALHOU | CANCELADO
+  telegramId   String?
+  tentativas   Int      @default(0)
+  erro         String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+  @@unique([loteId, assinanteId])
+  @@index([status, criadoEm])
+  @@map("telegram_mensagens")
+}
+
+model TelegramEvento {
+  updateId   String   @id
+  recebidoEm DateTime @default(now())
+  @@map("telegram_eventos")
 }
