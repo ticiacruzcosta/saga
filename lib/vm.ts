@@ -33,14 +33,16 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     ofertaAtual(), ofertaPublicada(), prisma.oferta.findMany({ orderBy: { codigo: "desc" } }),
   ]);
 
-  const [ambientes, professores, grupos, avisos, disciplinas, usuarios, lotesWhatsapp, lotesTelegram] = await Promise.all([
+  const [ambientes, professores, cursos, grupos, avisos, disciplinas, usuarios, assinantesTg, lotesWhatsapp, lotesTelegram] = await Promise.all([
     prisma.ambiente.findMany({ where: { NOT: { codigo: { in: ["EAD", "SALA_COMUM"] } } }, orderBy: { codigo: "asc" } }),
     prisma.professor.findMany({ orderBy: { nome: "asc" } }),
-    prisma.grupoAlunos.findMany({ orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
+    prisma.curso.findMany({ include: { _count: { select: { grupos: true } } }, orderBy: { nome: "asc" } }),
+    prisma.grupoAlunos.findMany({ include: { curso: true }, orderBy: [{ cursoId: "asc" }, { periodo: "asc" }, { letra: "asc" }, { turno: "asc" }] }),
     prisma.aviso.findMany({ include: { grupo: true }, orderBy: { criadoEm: "desc" }, take: 200 }),
     prisma.disciplina.findMany({ select: { nome: true }, orderBy: { nome: "asc" } }),
     // pedidos de acesso pendentes primeiro
     admin ? prisma.usuario.findMany({ orderBy: [{ ativo: "asc" }, { nome: "asc" }] }) : [],
+    prisma.telegramAssinante.findMany({ include: { grupo: true }, orderBy: [{ ativo: "desc" }, { atualizadoEm: "desc" }], take: 50 }).catch(() => []),
     prisma.whatsappLote.findMany({ select: { avisoId: true } }).catch(() => []),
     prisma.telegramLote.findMany({ include: { mensagens: { select: { status: true, erro: true } } } }).catch(() => []),
   ]);
@@ -63,7 +65,21 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     professores: professores.map((p) => ({
       id: p.id, nome: p.nome, email: p.email ?? "—", dias: p.diasIndisponiveis ? p.diasIndisponiveis.split(",") : [],
     })),
-    grupos: grupos.map((g) => ({ id: g.id, nome: g.nome, alunos: g.qtdAlunos, wa: g.linkWhatsapp ?? "—" })),
+    cursos: cursos.map((c) => ({
+      id: c.id, nome: c.nome, sigla: c.sigla, turmas: c._count.grupos,
+    })),
+    grupos: grupos.map((g) => ({
+      id: g.id,
+      nome: g.nome,
+      cursoId: g.cursoId,
+      cursoNome: g.curso.nome,
+      cursoSigla: g.curso.sigla,
+      periodo: g.periodo,
+      letra: g.letra,
+      turno: g.turno,
+      alunos: g.qtdAlunos,
+      wa: g.linkWhatsapp ?? "—",
+    })),
     avisos: avisos.map((a) => {
       const loteTg = lotesTgPorAviso.get(a.id);
       const falhaTg = loteTg?.mensagens.find((m) => m.status === "FALHOU");
@@ -99,6 +115,14 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     }),
     disciplinas: [...new Set(disciplinas.map((d) => d.nome))],
     usuarios: usuarios.map((u) => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo, admin: u.perfil === "ADMIN", desde: dataHora(u.criadoEm).slice(0, 10) })),
+    assinantesTelegram: assinantesTg.map((s) => ({
+      id: s.id,
+      chatId: s.chatId,
+      nome: s.nome ?? "Aluno",
+      ativo: s.ativo,
+      grupoId: s.grupoId,
+      grupoNome: s.grupo?.nome ?? null,
+    })),
     totalConflitos: 0,
     totalConfirmar: 0,
     telegramOk: chaveTelegramOk,
@@ -114,19 +138,48 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
     else base.totalConfirmar++;
   });
 
-  // Alterações pontuais de HOJE (sala/professor)
-  const alteracoes = await prisma.alteracao.findMany({ where: { data: hojeData() }, orderBy: { id: "asc" } });
+  // Alterações pontuais (sala, professor e cancelamento de aula) por data
+  const alteracoes = await prisma.alteracao.findMany({
+    where: {
+      turma: { ofertaId: oferta.id },
+      tipo: { in: ["TROCA_SALA", "TROCA_PROFESSOR", "CANCELAMENTO"] },
+    },
+    orderBy: { id: "asc" },
+  });
+  const isoHoje = base.dataHoje;
   const salaHoje = new Map<number, string>();
   const profHoje = new Map<number, string>();
+  const canceladaHoje = new Map<number, string | null>();
+  const porTurmaData = new Map<number, Record<string, { sala?: string; prof?: string; cancelada?: boolean; motivo?: string | null }>>();
+
   for (const a of alteracoes) {
-    if (a.tipo === "TROCA_SALA" && a.valorNovo) salaHoje.set(a.turmaId, a.valorNovo);
-    if (a.tipo === "TROCA_PROFESSOR" && a.valorNovo) profHoje.set(a.turmaId, a.valorNovo);
+    const iso = a.data.toISOString().slice(0, 10);
+    let mapaData = porTurmaData.get(a.turmaId);
+    if (!mapaData) {
+      mapaData = {};
+      porTurmaData.set(a.turmaId, mapaData);
+    }
+    const item = (mapaData[iso] ??= {});
+    if (a.tipo === "TROCA_SALA" && a.valorNovo) {
+      item.sala = a.valorNovo;
+      if (iso === isoHoje) salaHoje.set(a.turmaId, a.valorNovo);
+    }
+    if (a.tipo === "TROCA_PROFESSOR" && a.valorNovo) {
+      item.prof = a.valorNovo;
+      if (iso === isoHoje) profHoje.set(a.turmaId, a.valorNovo);
+    }
+    if (a.tipo === "CANCELAMENTO") {
+      item.cancelada = true;
+      item.motivo = a.motivo ?? null;
+      if (iso === isoHoje) canceladaHoje.set(a.turmaId, a.motivo ?? null);
+    }
   }
 
   base.turmas = turmas.map((t: TurmaCompleta): TurmaVM => {
     const fmt = t.formato ?? t.disciplina.formato;
     const ead = fmt === "ASSINCRONA" || fmt === "SINCRONA";
     const d = t.disciplina;
+    const isCanceladaHoje = canceladaHoje.has(t.id);
     return {
       id: t.id,
       grupoId: t.grupoId,
@@ -137,7 +190,10 @@ export async function carregarDados(admin = false): Promise<DadosSaga> {
       sala: salaHoje.get(t.id) ?? t.ambiente?.codigo ?? (ead ? "EAD" : "Sala comum"),
       profGrade: t.professor?.nome ?? "A definir",
       salaGrade: t.ambiente?.codigo ?? (ead ? "EAD" : "Sala comum"),
-      alteradaHoje: salaHoje.has(t.id) || profHoje.has(t.id),
+      alteradaHoje: salaHoje.has(t.id) || profHoje.has(t.id) || isCanceladaHoje,
+      canceladaHoje: isCanceladaHoje,
+      motivoCancelamento: canceladaHoje.get(t.id) ?? null,
+      alteracoesPorData: porTurmaData.get(t.id) ?? {},
       profId: t.professorId,
       salaId: t.ambienteId,
       inicio: t.horaInicio != null ? minutosParaHora(t.horaInicio) : "",

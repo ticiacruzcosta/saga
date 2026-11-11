@@ -18,7 +18,19 @@
 }
 
 body {
-  font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", "Nunito", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.011em;
+}
+
+.tabular-nums,
+table td,
+table th,
+input[type="time"],
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
 }
 
 @layer components {
@@ -78,6 +90,84 @@ body {
 
   /* Cabeçalho de tabela claro, texto azul institucional */
   .tabela-cab { background: var(--saga-cabecalho-tabela); color: var(--saga-titulo); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Item do menu lateral com crescente de cor da direita para a esquerda e aba recortada */
+  .nav-aba-item {
+    position: relative;
+    isolation: isolate;
+    border-radius: 9999px 0 0 9999px;
+    transition:
+      color 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Crescente de cor que avança da direita (100% da largura lá na direita) para a esquerda */
+  .nav-aba-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 9999px 0 0 9999px;
+    background: linear-gradient(270deg, var(--saga-fundo) 0%, var(--saga-fundo) 78%, #ffffff 100%);
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition:
+      transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.3s ease;
+    pointer-events: none;
+  }
+  /* No hover (aba inativa): crescente suave da direita para a esquerda */
+  .nav-aba-item:hover:not(.nav-aba-ativa) .nav-aba-bg {
+    opacity: 1;
+    background: linear-gradient(270deg, rgb(255 255 255 / 0.16) 0%, rgb(243 146 0 / 0.08) 65%, transparent 100%);
+    transform: scaleX(1);
+  }
+  /* Ao pressionar (active): crescente mais forte preenchendo da direita para a esquerda */
+  .nav-aba-item:active:not(.nav-aba-ativa) .nav-aba-bg {
+    opacity: 1;
+    background: linear-gradient(270deg, var(--saga-fundo) 0%, rgb(244 246 249 / 0.55) 100%);
+    transform: scaleX(1);
+  }
+  /* Aba selecionada: preenche da direita para a esquerda até formar o card branco completo */
+  .nav-aba-ativa .nav-aba-bg {
+    opacity: 1;
+    background: linear-gradient(270deg, var(--saga-fundo) 0%, var(--saga-fundo) 72%, #ffffff 100%);
+    transform: scaleX(1);
+  }
+  .nav-aba-item::before,
+  .nav-aba-item::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    width: 18px;
+    height: 18px;
+    background: transparent;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(8px);
+    transition:
+      opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .nav-aba-item::before {
+    top: -18px;
+    border-bottom-right-radius: 18px;
+    box-shadow: 6px 6px 0 6px var(--saga-fundo);
+  }
+  .nav-aba-item::after {
+    bottom: -18px;
+    border-top-right-radius: 18px;
+    box-shadow: 6px -6px 0 6px var(--saga-fundo);
+  }
+  .nav-aba-ativa {
+    color: var(--saga-titulo);
+    font-weight: 800;
+  }
+  .nav-aba-ativa::before,
+  .nav-aba-ativa::after {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* Tema escuro do sistema (botão lua/sol no cabeçalho). As utilidades do Tailwind leem as cores de

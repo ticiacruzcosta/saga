@@ -15,4 +15,7 @@ test("apenas mensagens em conversas privadas", () => {
   assert.equal(chatPrivado({ message: { chat: { id: 10, type: "group" }, text: "/start" } }), null);
   assert.equal(chatPrivado({ message: { chat: { id: 10, type: "private" }, text: "/start" } })?.chat.id, 10);
   assert.equal(chatPrivado({ message: { chat: { id: 10, type: "private" } } }), null);
+  const cb = chatPrivado({ callback_query: { id: "cb1", data: "/turma 5", message: { chat: { id: 22, type: "private" } } } });
+  assert.equal(cb?.chat.id, 22);
+  assert.equal(cb?.text, "/turma 5");
 });

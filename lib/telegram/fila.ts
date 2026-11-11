@@ -2,12 +2,24 @@ import { prisma } from "@/lib/prisma";
 import { modoTelegram, obterTokenTelegram, telegramConfigurado } from "@/lib/telegram/api";
 import { enviarMensagemHttps } from "@/lib/telegram/transporte-https.mjs";
 
-export async function prepararTelegram(avisoId: number) {
+export async function prepararTelegram(avisoId: number, escopo: "TURMA" | "TODOS" = "TURMA") {
   const aviso = await prisma.aviso.findUnique({ where: { id: avisoId }, include: { grupo: true } });
   if (!aviso) throw new Error("Aviso não encontrado.");
   const existente = await prisma.telegramLote.findUnique({ where: { avisoId } });
   if (existente) return existente;
-  const assinantes = await prisma.telegramAssinante.findMany({ where: { ativo: true }, select: { id: true } });
+
+  // Se escopo === "TURMA", prioriza alunos vinculados à turma do aviso + alunos ainda sem turma definida;
+  // se não houver nenhum, usa todos os inscritos ativos para não bloquear o disparo.
+  let assinantes = await prisma.telegramAssinante.findMany({
+    where:
+      escopo === "TURMA"
+        ? { ativo: true, OR: [{ grupoId: aviso.grupoId }, { grupoId: null }] }
+        : { ativo: true },
+    select: { id: true },
+  });
+  if (!assinantes.length && escopo === "TURMA") {
+    assinantes = await prisma.telegramAssinante.findMany({ where: { ativo: true }, select: { id: true } });
+  }
   if (!assinantes.length) throw new Error("Nenhum aluno inscrito pelo Telegram. Solicite /start primeiro.");
   const conteudo = `SAGA • Aviso acadêmico\nTurma: ${aviso.grupo.nome}\n${aviso.conteudo}`.slice(0, 3900);
   return prisma.$transaction(async tx => {

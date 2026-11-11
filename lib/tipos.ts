@@ -13,6 +13,9 @@ export type TurmaVM = {
   profGrade: string; // sem a alteração de hoje (para ver outros dias)
   salaGrade: string;
   alteradaHoje: boolean;
+  canceladaHoje?: boolean;
+  motivoCancelamento?: string | null;
+  alteracoesPorData?: Record<string, { sala?: string; prof?: string; cancelada?: boolean; motivo?: string | null }>;
   profId: number | null; // para a edição em Ofertas & Disciplinas
   salaId: number | null;
   inicio: string; // "19:00" ou ""
@@ -33,8 +36,28 @@ export type TurmaVM = {
 
 export type SalaVM = { id: number; nome: string; tipo: string; cap: number | null; predio: string };
 export type ProfVM = { id: number; nome: string; email: string; dias: string[] }; // dias: em que NÃO pode dar aula (formato do banco)
-export type GrupoVM = { id: number; nome: string; alunos: number | null; wa: string };
+export type CursoVM = { id: number; nome: string; sigla: string; turmas: number };
+export type GrupoVM = {
+  id: number;
+  nome: string;
+  cursoId: number;
+  cursoNome: string;
+  cursoSigla: string;
+  periodo: number | null;
+  letra: string | null;
+  turno: string;
+  alunos: number | null;
+  wa: string;
+};
 export type UsuarioVM = { id: number; nome: string; email: string; ativo: boolean; admin: boolean; desde: string };
+export type AssinanteTelegramVM = {
+  id: number;
+  chatId: string;
+  nome: string;
+  ativo: boolean;
+  grupoId: number | null;
+  grupoNome: string | null;
+};
 export type AvisoVM = {
   id: number;
   quando: string;
@@ -56,9 +79,11 @@ export type DadosSaga = {
   turmas: TurmaVM[];
   salas: SalaVM[];
   professores: ProfVM[];
+  cursos: CursoVM[];
   grupos: GrupoVM[];
   avisos: AvisoVM[];
   usuarios: UsuarioVM[];
+  assinantesTelegram: AssinanteTelegramVM[];
   disciplinas: string[];
   totalConflitos: number;
   totalConfirmar: number;

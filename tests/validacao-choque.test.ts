@@ -30,8 +30,15 @@ test("mesma sala ocupada é erro, mas rodízio vira alerta (RN-02 / RN-06)", () 
 });
 
 test("mesma turma de alunos com duas aulas no horário é erro (RN-03)", () => {
-  const c = validarTurma(aula({ id: 1 }), [aula({ id: 2, disciplinaId: 2 })]);
+  const c = validarTurma(aula({ id: 1, grupoId: 10 }), [aula({ id: 2, grupoId: 10, disciplinaId: 2 })]);
   assert.equal(c[0].regra, "RN-03");
+  assert.equal(c[0].gravidade, "ERRO");
+});
+
+test("mesma turma pode ter mais de uma matéria no mesmo dia se os horários não se sobrepõem", () => {
+  const primeira = aula({ id: 1, grupoId: 10, disciplinaNome: "Algoritmos", horaInicio: 19 * 60, horaFim: 20 * 60 + 20 });
+  const segunda = aula({ id: 2, grupoId: 10, disciplinaId: 2, disciplinaNome: "Banco de Dados", horaInicio: 20 * 60 + 20, horaFim: 21 * 60 + 45 });
+  assert.deepEqual(validarTurma(segunda, [primeira]), []);
 });
 
 test("aula híbrida rebaixa o choque para alerta", () => {

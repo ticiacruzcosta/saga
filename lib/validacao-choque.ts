@@ -7,12 +7,14 @@ export type DiaSemana = "SEGUNDA" | "TERCA" | "QUARTA" | "QUINTA" | "SEXTA" | "S
 
 export interface TurmaParaValidar {
   id?: number;
+  grupoId?: number | null;
   disciplinaId: number;
   disciplinaNome: string;
   disciplinaCodigo: string;
   cursoId: number;
   periodo: number;
   letra: string;
+  turno?: string;
   formato: Formato;
   professorId: number | null;
   professorNome?: string;
@@ -133,12 +135,21 @@ export function validarTurma(
       );
     }
 
-    // RN-03: a mesma turma de alunos com duas aulas ao mesmo tempo
-    if (nova.cursoId === outra.cursoId && nova.periodo === outra.periodo && nova.letra === outra.letra) {
+    // RN-03: a mesma turma de alunos com duas aulas que se sobrepõem no horário.
+    // Duas matérias no mesmo dia sem sobreposição (ex.: 19:00-20:30 e 20:30-21:45) são permitidas.
+    const mesmaTurmaAlunos =
+      nova.grupoId != null && outra.grupoId != null
+        ? nova.grupoId === outra.grupoId
+        : nova.cursoId === outra.cursoId &&
+          nova.periodo === outra.periodo &&
+          nova.letra === outra.letra &&
+          (nova.turno ?? "NOTURNO") === (outra.turno ?? "NOTURNO");
+
+    if (mesmaTurmaAlunos) {
       conflitos.push({
         regra: "RN-03",
-        gravidade,
-        mensagem: `${nova.periodo}º período turma ${nova.letra} já tem ${outra.disciplinaNome} ${quando}.${nota}`,
+        gravidade: "ERRO",
+        mensagem: `Choque de horário: esta turma já tem ${outra.disciplinaNome} (${minutosParaHora(outra.horaInicio)}-${minutosParaHora(outra.horaFim)}) em ${rotuloDia(nova.diaSemana)}. Ajuste os horários para não se sobreporem.`,
         turmaConflitanteId: outra.id,
       });
     }

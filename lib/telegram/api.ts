@@ -51,14 +51,50 @@ export async function chamadaTelegram<T>(metodo: string, dados: object | FormDat
 
 export type TelegramEnviada = { message_id: number };
 
-export async function enviarMensagem(chatId: string, texto: string) {
-  return chamadaTelegram<TelegramEnviada>("sendMessage", { chat_id: chatId, text: texto.slice(0, 4000) });
+export type BotaoInlineTelegram = { text: string; callback_data: string };
+
+export async function enviarMensagem(
+  chatId: string,
+  texto: string,
+  opcoes?: { botoes?: BotaoInlineTelegram[][]; parseMode?: "HTML" }
+) {
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    text: texto.slice(0, 4000),
+  };
+  if (opcoes?.parseMode) payload.parse_mode = opcoes.parseMode;
+  if (opcoes?.botoes?.length) payload.reply_markup = { inline_keyboard: opcoes.botoes };
+  return chamadaTelegram<TelegramEnviada>("sendMessage", payload);
 }
 
-export async function enviarFoto(chatId: string, png: Uint8Array, legenda: string) {
+export async function responderCallbackTelegram(callbackQueryId: string, texto?: string) {
+  return chamadaTelegram<boolean>("answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    ...(texto ? { text: texto.slice(0, 180) } : {}),
+  }).catch(() => false);
+}
+
+export async function sincronizarComandosTelegram() {
+  return chamadaTelegram<boolean>("setMyCommands", {
+    commands: [
+      { command: "start", description: "Inscrever-se e abrir menu principal" },
+      { command: "hoje", description: "Imagem com as aulas de hoje da sua turma" },
+      { command: "amanha", description: "Imagem com as aulas de amanhã" },
+      { command: "semana", description: "Resumo das aulas da semana inteira" },
+      { command: "minhaturma", description: "Ver sua turma atual e estatísticas" },
+      { command: "turmas", description: "Escolher ou trocar sua turma" },
+      { command: "avisos", description: "Últimos avisos da sua turma" },
+      { command: "ajuda", description: "Lista completa de comandos" },
+      { command: "sair", description: "Pausar notificações do bot" },
+    ],
+  });
+}
+
+export async function enviarFoto(chatId: string, png: Uint8Array, legenda: string, botoes?: BotaoInlineTelegram[][]) {
   const dados = new FormData();
   dados.set("chat_id", chatId);
   dados.set("caption", legenda.slice(0, 900));
   dados.set("photo", new Blob([png as Uint8Array<ArrayBuffer>], { type: "image/png" }), "horario-saga.png");
+  if (botoes?.length) dados.set("reply_markup", JSON.stringify({ inline_keyboard: botoes }));
   return chamadaTelegram<TelegramEnviada>("sendPhoto", dados);
 }

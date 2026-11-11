@@ -106,7 +106,7 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
                 <tr key={nome} className="align-top break-inside-avoid">
                   <td className="p-3 font-bold text-[#1A2332] sticky left-0 bg-white border-r border-gray-100">{nome}</td>
                   {semana.colunas.map((c) => (
-                    <td key={c} className={`p-2 space-y-1.5 ${c === dados.diaHoje ? "bg-orange-50/50" : ""}`}>
+                    <td key={c} className={`p-2 space-y-2 ${c === dados.diaHoje ? "bg-orange-50/40" : ""}`}>
                       {(porDia.get(c) ?? []).map((a) => {
                         const erro = a.conflitos.some((x) => x.gravidade === "ERRO");
                         const corFormato =
@@ -115,18 +115,39 @@ export default function TelaSemana({ dados }: { dados: DadosSaga }) {
                         const trocaHoje = a.alteradaHoje && a.dia === dados.diaHoje;
                         return (
                           <div key={a.id} title={a.conflitos.map((x) => x.mensagem).join("\n") || undefined}
-                            className={`rounded-md border border-l-4 ${corFormato} ${erro ? "border-red-400 bg-red-50" : "border-gray-200 bg-gray-50"} p-2 leading-snug`}>
-                            <div className="font-semibold text-gray-900">{a.nome}</div>
-                            {a.horario !== "—" && <div className="text-gray-500">{a.horario}</div>}
-                            {sAgrupar !== "turma" && <div className="text-gray-600">{a.turma}</div>}
-                            {sAgrupar !== "prof" && <div className="text-gray-600">{a.profGrade}</div>}
-                            {sAgrupar !== "sala" && <div className="font-bold text-[#B45309]">{a.salaGrade}</div>}
-                            {a.formato !== "Presencial" && <div className="text-gray-400">{a.formato}</div>}
-                            {a.consome && <div className="text-blue-600">assiste com outro curso</div>}
-                            {trocaHoje && (
-                              <div className="mt-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded px-1">
-                                hoje: {a.sala !== a.salaGrade ? a.sala : ""}{a.sala !== a.salaGrade && a.prof !== a.profGrade ? " · " : ""}{a.prof !== a.profGrade ? a.prof : ""}
+                            className={`rounded-xl border border-l-4 ${corFormato} ${erro ? "border-red-400 bg-red-50/80" : "border-gray-200/90 bg-white shadow-2xs"} p-2.5 leading-snug space-y-1`}>
+                            <div className="font-bold text-[#1A2332]">{a.nome}</div>
+                            {a.horario !== "—" && (
+                              <div className="text-[11px] font-bold tabular-nums text-gray-500">
+                                <i className="fa-regular fa-clock text-[9px] text-[#B45309] mr-1"></i>
+                                {a.horario}
                               </div>
+                            )}
+                            {sAgrupar !== "turma" && <div className="text-[11px] font-semibold text-gray-700">{a.turma}</div>}
+                            {sAgrupar !== "prof" && <div className="text-[11px] text-gray-500">{a.profGrade}</div>}
+                            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                              {sAgrupar !== "sala" && (
+                                <span className="inline-block px-2 py-0.5 rounded-md bg-[#FFF4E5] font-extrabold text-[10px] text-[#B45309]">
+                                  {a.salaGrade}
+                                </span>
+                              )}
+                              {a.formato !== "Presencial" && (
+                                <span className="inline-block px-1.5 py-0.5 rounded-md bg-gray-100 text-[10px] font-semibold text-gray-600">
+                                  {a.formato}
+                                </span>
+                              )}
+                            </div>
+                            {a.consome && <div className="text-[10px] font-medium text-blue-600">assiste com outro curso</div>}
+                            {trocaHoje && (
+                              a.canceladaHoje ? (
+                                <div className="mt-1 text-[10px] font-extrabold text-red-700 bg-red-100 rounded-md px-1.5 py-0.5">
+                                  hoje: AULA CANCELADA
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5">
+                                  hoje: {a.sala !== a.salaGrade ? a.sala : ""}{a.sala !== a.salaGrade && a.prof !== a.profGrade ? " · " : ""}{a.prof !== a.profGrade ? a.prof : ""}
+                                </div>
+                              )
                             )}
                             {erro && <div className="mt-1 text-[10px] font-bold text-red-700">conflito</div>}
                           </div>

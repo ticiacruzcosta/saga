@@ -46,12 +46,14 @@ export type TurmaCompleta = Awaited<ReturnType<typeof carregarTurmas>>[number];
 export function paraValidar(t: TurmaCompleta): TurmaParaValidar {
   return {
     id: t.id,
+    grupoId: t.grupoId,
     disciplinaId: t.disciplinaId,
     disciplinaNome: t.nomeNaPlanilha ?? t.disciplina.nome,
     disciplinaCodigo: t.disciplina.codigo ?? "",
     cursoId: t.grupo?.cursoId ?? 0,
     periodo: t.grupo?.periodo ?? 0,
     letra: t.letra,
+    turno: t.turno ?? t.grupo?.turno ?? "NOTURNO",
     formato: (t.formato ?? t.disciplina.formato) as Formato,
     professorId: t.professorId,
     professorNome: t.professor?.nome,

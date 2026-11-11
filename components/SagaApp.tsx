@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  cadastrarOferta, conferirOferta, criarGrupo, criarProfessor, criarSala, enviarAviso, excluirCadastro,
+  cadastrarOferta, conferirOferta, criarCurso, criarGrupo, criarProfessor, criarSala, enviarAviso, excluirCadastro,
   previaExclusao, salvarAlteracao, type TipoCadastro,
 } from "@/app/actions";
 import { aplicarRealocacao, aplicarResolucao, planejarResolucao, sugerirRealocacao } from "@/app/realocacao";
@@ -25,7 +25,7 @@ import TelaUsuarios from "./telas/TelaUsuarios";
 import ModalSenha from "./ModalSenha";
 import Avisos, { avisar, confirmar } from "./avisos";
 import type {
-  DadosSaga, OfertaInput, PlanoResolucaoVM, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
+  DadosSaga, GrupoVM, OfertaInput, PlanoResolucaoVM, ResultadoGeracao, ResultadoOferta, SugestaoRealocacaoVM, TurmaVM,
 } from "@/lib/tipos";
 
 const TITULOS: Record<string, string> = {
@@ -60,6 +60,42 @@ function Selo({ tipo }: { tipo: "ok" | "erro" | "confirmar" }) {
   );
 }
 
+/** Paleta suave por curso para destacar visualmente cada área. */
+const CORES_CURSO = [
+  { borda: "border-l-amber-500", selo: "bg-amber-50 text-amber-800 border-amber-200", ponto: "bg-amber-500", ativo: "bg-amber-600 text-white border-amber-600" },
+  { borda: "border-l-blue-600", selo: "bg-blue-50 text-blue-800 border-blue-200", ponto: "bg-blue-600", ativo: "bg-blue-600 text-white border-blue-600" },
+  { borda: "border-l-emerald-600", selo: "bg-emerald-50 text-emerald-800 border-emerald-200", ponto: "bg-emerald-600", ativo: "bg-emerald-600 text-white border-emerald-600" },
+  { borda: "border-l-purple-600", selo: "bg-purple-50 text-purple-800 border-purple-200", ponto: "bg-purple-600", ativo: "bg-purple-600 text-white border-purple-600" },
+  { borda: "border-l-rose-600", selo: "bg-rose-50 text-rose-800 border-rose-200", ponto: "bg-rose-600", ativo: "bg-rose-600 text-white border-rose-600" },
+  { borda: "border-l-cyan-600", selo: "bg-cyan-50 text-cyan-800 border-cyan-200", ponto: "bg-cyan-600", ativo: "bg-cyan-600 text-white border-cyan-600" },
+  { borda: "border-l-indigo-600", selo: "bg-indigo-50 text-indigo-800 border-indigo-200", ponto: "bg-indigo-600", ativo: "bg-indigo-600 text-white border-indigo-600" },
+];
+
+function corDoCurso(id: number) {
+  return CORES_CURSO[Math.abs(id) % CORES_CURSO.length];
+}
+
+/** Rótulo resumido da turma para a visualização em blocos (ex.: "S.I - 1º V", "E.C - 3º A"). */
+function rotuloBlocoTurma(t: GrupoVM): string {
+  const s = (t.cursoSigla || "CUR").toUpperCase();
+  const siglaFmt = s.length === 2 ? `${s[0]}.${s[1]}` : s;
+  const per = t.periodo != null ? `${t.periodo}º` : (/\d+º?/.exec(t.nome)?.[0] ?? "");
+  const ehVesp = t.turno === "VESPERTINO" || /\bVESP/i.test(t.nome);
+  const letra = t.letra && t.letra !== "A" ? t.letra : (/\b([B-D])\b/.exec(t.nome)?.[1] ?? "");
+  const sufixo = ehVesp ? `${letra ? `${letra} ` : ""}V` : (t.letra || "A");
+  const detalhe = [per, sufixo].filter(Boolean).join(" ");
+  return detalhe ? `${siglaFmt} - ${detalhe}` : siglaFmt;
+}
+
+function iniciais(nome: string): string {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario: UsuarioLogado }) {
   const router = useRouter();
   const [tab, setTab] = useState("dashboard");
@@ -89,21 +125,40 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
   // filtros
   const [dashBusca, setDashBusca] = useState("");
+  const [turmasBusca, setTurmasBusca] = useState("");
+  const [turmasCursoFiltro, setTurmasCursoFiltro] = useState<number | null>(null);
+  const [turmasModo, setTurmasModo] = useState<"lista" | "blocos">("blocos");
+  const [profBusca, setProfBusca] = useState("");
+  const [profModo, setProfModo] = useState<"lista" | "blocos">("blocos");
+  const [salasBusca, setSalasBusca] = useState("");
+  const [salasTipoFiltro, setSalasTipoFiltro] = useState<string>("TODOS");
+  const [salasModo, setSalasModo] = useState<"lista" | "blocos">("blocos");
+  const [ofertasBusca, setOfertasBusca] = useState("");
+  const [ofertasDiaFiltro, setOfertasDiaFiltro] = useState<string>("TODOS");
+  const [ofertasCursoFiltro, setOfertasCursoFiltro] = useState<string>("TODOS");
+  const [ofertasModo, setOfertasModo] = useState<"lista" | "blocos">("blocos");
   const [gTurma, setGTurma] = useState("TODOS");
   const [gDia, setGDia] = useState("TODOS");
   const [gProf, setGProf] = useState("TODOS");
   const [gEspaco, setGEspaco] = useState("TODOS");
 
   // janelas
-  const [modal, setModal] = useState<"" | "sala" | "professor" | "turma" | "disciplina" | "edit" | "whatsapp" | "realocar" | "resolver" | "gerar">("");
+  const [modal, setModal] = useState<"" | "sala" | "professor" | "turma" | "curso" | "disciplina" | "edit" | "whatsapp" | "realocar" | "resolver" | "gerar">("");
   const [editando, setEditando] = useState<TurmaVM | null>(null);
   const [editSala, setEditSala] = useState("");
   const [editProf, setEditProf] = useState("");
+  const [editCancelada, setEditCancelada] = useState(false);
+  const [editMotivo, setEditMotivo] = useState("");
+  const [editGerarAviso, setEditGerarAviso] = useState(true);
+  const [editMsgCustom, setEditMsgCustom] = useState("");
+  const [editMsgTocado, setEditMsgTocado] = useState(false);
   const [waTurma, setWaTurma] = useState<TurmaVM | null>(null);
+  const [waTexto, setWaTexto] = useState("");
 
   const [sala, setSala] = useState({ nome: "", tipo: "Laboratório/Prático", cap: "", predio: "" });
   const [prof, setProf] = useState<{ nome: string; email: string; dias: string[] }>({ nome: "", email: "", dias: [] });
-  const [turma, setTurma] = useState({ nome: "", alunos: "", wa: "" });
+  const [curso, setCurso] = useState({ nome: "", sigla: "" });
+  const [turma, setTurma] = useState({ cursoId: "", novoCurso: "", siglaCurso: "", nome: "", alunos: "", wa: "" });
   // cadastro sendo editado (null = cadastro novo); vale para sala, professor e turma
   const [editId, setEditId] = useState<number | null>(null);
   const [editAulaId, setEditAulaId] = useState<number | null>(null); // null = cadastrar oferta nova
@@ -170,17 +225,22 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   // Salas livres por dia (para as cores do calendário): só as salas que o sistema controla
   const ocupacao = useMemo(() => {
     const controladas = new Set(dados.salas.map((s) => s.nome));
-    const usadas = (dia: string, hoje: boolean) =>
+    const usadas = (dia: string, data: string) =>
       new Set(
         dados.turmas
-          .filter((t) => t.dia === dia && !t.consome && t.formato !== "Assíncrona" && t.formato !== "Síncrona")
-          .map((t) => (hoje ? t.sala : t.salaGrade))
+          .filter((t) => {
+            if (t.dia !== dia || t.consome || t.formato === "Assíncrona" || t.formato === "Síncrona") return false;
+            const alt = t.alteracoesPorData?.[data];
+            if (alt?.cancelada || (data === dados.dataHoje && t.canceladaHoje)) return false;
+            return true;
+          })
+          .map((t) => t.alteracoesPorData?.[data]?.sala ?? (data === dados.dataHoje ? t.sala : t.salaGrade))
           .filter((s) => controladas.has(s))
       ).size;
     return (data: string): Ocupacao | null => {
       const dia = diaDaData(data);
       if (!dia) return null;
-      return { livres: controladas.size - usadas(dia, data === dados.dataHoje), total: controladas.size };
+      return { livres: controladas.size - usadas(dia, data), total: controladas.size };
     };
   }, [dados]);
 
@@ -204,11 +264,25 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     const termo = dashBusca.trim().toLowerCase();
     return dados.turmas
       .filter((t) => diaVer && t.dia === diaVer && !t.consome)
-      // Troca pontual (lápis) só vale hoje: nos outros dias mostra a grade normal
-      .map((t) => (ehHoje ? t : { ...t, sala: t.salaGrade, prof: t.profGrade, alteradaHoje: false }))
+      .map((t) => {
+        const alt = t.alteracoesPorData?.[dataVer];
+        const salaDia = alt?.sala ?? (ehHoje ? t.sala : t.salaGrade);
+        const profDia = alt?.prof ?? (ehHoje ? t.prof : t.profGrade);
+        const canceladaDia = Boolean(alt?.cancelada ?? (ehHoje ? t.canceladaHoje : false));
+        const motivoDia = alt?.motivo ?? (ehHoje ? t.motivoCancelamento : null);
+        const alteradaDia = Boolean(alt?.sala || alt?.prof || canceladaDia || (ehHoje && t.alteradaHoje));
+        return {
+          ...t,
+          sala: salaDia,
+          prof: profDia,
+          alteradaHoje: alteradaDia,
+          canceladaHoje: canceladaDia,
+          motivoCancelamento: motivoDia,
+        };
+      })
       .filter((t) => !termo || `${t.turma} ${t.nome} ${t.prof} ${t.sala}`.toLowerCase().includes(termo))
       .sort(porDiaHora);
-  }, [dados, dashBusca, diaVer, ehHoje]);
+  }, [dados, dashBusca, diaVer, dataVer, ehHoje]);
 
   const grade = useMemo(
     () =>
@@ -250,7 +324,14 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
 
   function abrirNovaOferta() {
     setEditAulaId(null);
-    setForm({ ...FORM_VAZIO, grupoId: dados.grupos[0] ? String(dados.grupos[0].id) : "" });
+    const g0 = dados.grupos[0];
+    const vesp = g0?.turno === "VESPERTINO" || /\bVESP/i.test(g0?.nome ?? "");
+    setForm({
+      ...FORM_VAZIO,
+      grupoId: g0 ? String(g0.id) : "",
+      inicio: vesp ? "15:00" : "19:00",
+      fim: vesp ? "17:45" : "21:45",
+    });
     setConf(null);
     setModal("disciplina");
   }
@@ -264,7 +345,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
         router.refresh();
       } else {
         setConf(r);
-        if (r.erro) avisar(r.erro, "erro");
+        const msgErro = r.erro ?? r.conflitos.find((c) => c.gravidade === "ERRO")?.mensagem ?? "Corrija o choque de horário antes de salvar.";
+        avisar(msgErro, "erro");
       }
     });
   }
@@ -344,7 +426,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   }
 
   // ---------------------------------------------------------------- cadastros
-  function abrirCadastro(tipo: "sala" | "professor" | "turma", id: number | null = null) {
+  function abrirCadastro(tipo: "sala" | "professor" | "turma" | "curso", id: number | null = null) {
     setEditId(id);
     if (tipo === "sala") {
       const x = dados.salas.find((v) => v.id === id);
@@ -354,9 +436,18 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       const x = dados.professores.find((v) => v.id === id);
       setProf(x ? { nome: x.nome, email: semTraco(x.email), dias: x.dias } : { nome: "", email: "", dias: [] });
     }
+    if (tipo === "curso") {
+      const x = dados.cursos.find((v) => v.id === id);
+      setCurso(x ? { nome: x.nome, sigla: x.sigla } : { nome: "", sigla: "" });
+    }
     if (tipo === "turma") {
       const x = dados.grupos.find((v) => v.id === id);
-      setTurma(x ? { nome: x.nome, alunos: x.alunos != null ? String(x.alunos) : "", wa: semTraco(x.wa) } : { nome: "", alunos: "", wa: "" });
+      const cursoPadrao = dados.cursos[0] ? String(dados.cursos[0].id) : "NOVO";
+      setTurma(
+        x
+          ? { cursoId: String(x.cursoId), novoCurso: "", siglaCurso: "", nome: x.nome, alunos: x.alunos != null ? String(x.alunos) : "", wa: semTraco(x.wa) }
+          : { cursoId: cursoPadrao, novoCurso: "", siglaCurso: "", nome: "", alunos: "", wa: "" }
+      );
     }
     setModal(tipo);
   }
@@ -382,13 +473,33 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       router.refresh();
     });
   }
-  function salvarTurma() {
-    if (!turma.nome) return avisar("Informe a turma!", "erro");
+  function salvarCurso() {
+    if (!curso.nome.trim()) return avisar("Informe o nome do curso!", "erro");
     iniciar(async () => {
-      const r = await criarGrupo({ id: editId ?? undefined, nome: turma.nome, alunos: turma.alunos ? Number(turma.alunos) : null, wa: turma.wa });
+      const r = await criarCurso({ id: editId ?? undefined, nome: curso.nome, sigla: curso.sigla });
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar("Curso salvo");
+      setCurso({ nome: "", sigla: "" });
+      setModal("");
+      router.refresh();
+    });
+  }
+  function salvarTurma() {
+    if (!turma.nome.trim()) return avisar("Informe a turma ou período!", "erro");
+    if (turma.cursoId === "NOVO" && !turma.novoCurso.trim()) return avisar("Informe o nome do novo curso!", "erro");
+    iniciar(async () => {
+      const r = await criarGrupo({
+        id: editId ?? undefined,
+        nome: turma.nome,
+        cursoId: turma.cursoId && turma.cursoId !== "NOVO" ? Number(turma.cursoId) : null,
+        novoCurso: turma.cursoId === "NOVO" ? turma.novoCurso : undefined,
+        siglaCurso: turma.cursoId === "NOVO" ? turma.siglaCurso : undefined,
+        alunos: turma.alunos ? Number(turma.alunos) : null,
+        wa: turma.wa,
+      });
       if (!r.ok) return avisar(r.erro, "erro");
       avisar("Turma salva");
-      setTurma({ nome: "", alunos: "", wa: "" });
+      setTurma({ cursoId: "", novoCurso: "", siglaCurso: "", nome: "", alunos: "", wa: "" });
       setModal("");
       router.refresh();
     });
@@ -422,35 +533,87 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   }
 
   // ---------------------------------------------------------------- dashboard
-  function abrirEdicao(t: TurmaVM) {
+  const textoPadraoEdicao = (t: TurmaVM, salaIdStr: string, profIdStr: string, cancelada: boolean, motivo: string) => {
+    const dataBr = dataVer.split("-").reverse().join("/");
+    const motivoLimpo = motivo.trim();
+    if (cancelada) {
+      return `NÃO HAVERÁ AULA de ${t.nome} na turma ${t.turma} em ${dataBr}.${motivoLimpo ? ` Motivo: ${motivoLimpo}.` : ""}`;
+    }
+    const salaNova = dados.salas.find((s) => String(s.id) === salaIdStr)?.nome ?? "Sala comum";
+    const profNovo = dados.professores.find((p) => String(p.id) === profIdStr)?.nome ?? "A definir";
+    const detalhes: string[] = [];
+    if (t.canceladaHoje) detalhes.push("Aula confirmada/reativada");
+    if (salaNova !== t.sala) detalhes.push(`Sala: ${t.sala} → ${salaNova}`);
+    if (profNovo !== t.prof) detalhes.push(`Professor: ${t.prof} → ${profNovo}`);
+    if (t.canceladaHoje && detalhes.length === 1) {
+      return `Aula confirmada em ${dataBr}: ${t.nome} (${t.turma}) acontecerá normalmente na sala/lab ${salaNova} com ${profNovo}.`;
+    }
+    return `Alteração de aula em ${dataBr}: ${t.nome} (${t.turma}). ${detalhes.length ? detalhes.join("; ") : `Sala: ${salaNova}; Professor: ${profNovo}`}.`;
+  };
+
+  function abrirEdicao(t: TurmaVM, iniciarCancelando?: boolean) {
+    const salaIdStr = String(dados.salas.find((s) => s.nome === t.sala)?.id ?? "");
+    const profIdStr = String(dados.professores.find((p) => p.nome === t.prof)?.id ?? "");
+    const canceladaInicial = iniciarCancelando !== undefined ? iniciarCancelando : Boolean(t.canceladaHoje);
+    const motivoInicial = t.motivoCancelamento ?? "";
     setEditando(t);
-    setEditSala(String(dados.salas.find((s) => s.nome === t.sala)?.id ?? ""));
-    setEditProf(String(dados.professores.find((p) => p.nome === t.prof)?.id ?? ""));
+    setEditSala(salaIdStr);
+    setEditProf(profIdStr);
+    setEditCancelada(canceladaInicial);
+    setEditMotivo(motivoInicial);
+    setEditGerarAviso(true);
+    setEditMsgTocado(false);
+    setEditMsgCustom(textoPadraoEdicao(t, salaIdStr, profIdStr, canceladaInicial, motivoInicial));
     setModal("edit");
   }
   function salvarEdicao() {
     if (!editando) return;
+    const msgPadrao = textoPadraoEdicao(editando, editSala, editProf, editCancelada, editMotivo);
+    const msgFinal = editMsgTocado ? editMsgCustom.trim() : msgPadrao;
     iniciar(async () => {
-      await salvarAlteracao({
+      const r = await salvarAlteracao({
         turmaId: editando.id,
         salaId: editSala ? Number(editSala) : null,
         profId: editProf ? Number(editProf) : null,
+        cancelada: editCancelada,
+        motivo: editMotivo,
+        dataIso: dataVer,
+        mensagemCustomizada: msgFinal,
+        gerarAviso: editGerarAviso,
       });
+      if (!r.ok) return avisar(r.erro, "erro");
+      avisar(editCancelada ? "Aula cancelada e aviso preparado" : editando.canceladaHoje ? "Aula reativada" : "Alteração registrada");
       setModal("");
       router.refresh();
     });
   }
-  const textoAviso = (t: TurmaVM) =>
-    `Turma ${t.turma}: A aula de ${t.nome} ${ehHoje ? "hoje" : ehAmanha ? "amanhã" : `na ${nomeDiaVer} (${diaMes(dataVer)})`} será na sala/lab ${t.sala} com o(a) ${t.prof}.`;
+  const textoAviso = (t: TurmaVM) => {
+    const quando = ehHoje ? "hoje" : ehAmanha ? "amanhã" : `na ${nomeDiaVer} (${diaMes(dataVer)})`;
+    if (t.canceladaHoje) {
+      return `Turma ${t.turma}: Informamos que NÃO HAVERÁ AULA de ${t.nome} ${quando}.${t.motivoCancelamento ? ` Motivo: ${t.motivoCancelamento}.` : ""}`;
+    }
+    return `Turma ${t.turma}: A aula de ${t.nome} ${quando} será na sala/lab ${t.sala} com o(a) ${t.prof}.`;
+  };
   function abrirWhatsApp(t: TurmaVM) {
     setWaTurma(t);
+    setWaTexto(textoAviso(t));
     setModal("whatsapp");
   }
-  function enviarDisparo() {
+  function enviarDisparo(abrirWa = false) {
     if (!waTurma) return;
+    const msg = waTexto.trim();
+    if (!msg) return avisar("A mensagem do aviso não pode ficar vazia.", "erro");
     iniciar(async () => {
-      const r = await enviarAviso({ turmaId: waTurma.id, mensagem: textoAviso(waTurma) });
+      const r = await enviarAviso({ turmaId: waTurma.id, mensagem: msg });
       if (!r.ok) return avisar(r.erro, "erro");
+      if (abrirWa) {
+        try {
+          await navigator.clipboard.writeText(msg);
+        } catch {
+          // sem permissão de copiar
+        }
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
+      }
       avisar("Aviso registrado no histórico (pendente de envio)");
       setModal("");
       router.refresh();
@@ -460,33 +623,52 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const contasPendentes = dados.usuarios.filter((u) => !u.ativo).length;
 
   // ---------------------------------------------------------------- peças repetidas
-  const navBtn = (id: string, icone: string, nome: string, alerta = 0) => (
-    <li>
-      <button
-        onClick={() => {
-          setTab(id);
-          if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
-        }}
-        title={nome}
-        aria-current={tab === id ? "page" : undefined}
-        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-left text-sm transition-colors ${
-          tab === id ? "bg-[#F39200]/15 text-[#F7A428] font-extrabold" : "text-slate-300 font-semibold hover:bg-white/5 hover:text-white"
-        }`}
-      >
-        <span className="relative shrink-0">
-          <i className={`${icone} w-5 text-center`}></i>
-          {/* menu recolhido: só um ponto vermelho */}
-          {alerta > 0 && !sidebarOpen && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500"></span>}
-        </span>
-        <span className={`${sidebarOpen ? "" : "hidden"} truncate`}>{nome}</span>
-        {alerta > 0 && sidebarOpen && (
-          <span title={`${alerta} aviso(s) pendente(s)`} className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center">
-            {alerta}
+  const navBtn = (id: string, icone: string, nome: string, alerta = 0) => {
+    const ativo = tab === id;
+    return (
+      <li className={sidebarOpen ? "pl-3" : "px-2"}>
+        <button
+          onClick={() => {
+            setTab(id);
+            if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+          }}
+          title={nome}
+          aria-current={ativo ? "page" : undefined}
+          className={`group w-full flex items-center gap-2.5 py-2 text-left text-[13px] ${
+            sidebarOpen
+              ? ativo
+                ? "nav-aba-item nav-aba-ativa pl-3.5 pr-3.5"
+                : "nav-aba-item pl-3.5 pr-3.5 text-slate-300 font-semibold hover:text-white hover:translate-x-0.5"
+              : ativo
+                ? "justify-center px-0 rounded-2xl bg-[var(--saga-fundo)] text-[#1A2332] font-extrabold shadow-sm transition-all duration-250"
+                : "justify-center px-0 rounded-2xl text-slate-300 font-semibold hover:bg-white/8 hover:text-white transition-all duration-250"
+          }`}
+        >
+          {sidebarOpen && <span aria-hidden="true" className="nav-aba-bg" />}
+          <span
+            className={`relative shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-250 ease-out ${
+              ativo ? "bg-[#F39200]/15 text-[#C2410C]" : "text-slate-300 group-hover:text-white"
+            }`}
+          >
+            <i className={`${icone} text-[13px] text-center transition-transform duration-200 ease-out`}></i>
+            {/* menu recolhido: só um ponto vermelho */}
+            {alerta > 0 && !sidebarOpen && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500"></span>}
           </span>
-        )}
-      </button>
-    </li>
-  );
+          <span className={`${sidebarOpen ? "" : "hidden"} truncate transition-colors duration-200`}>{nome}</span>
+          {alerta > 0 && sidebarOpen && (
+            <span
+              title={`${alerta} aviso(s) pendente(s)`}
+              className={`ml-auto text-white text-[10px] font-extrabold rounded-full min-w-[1.15rem] h-4.5 px-1.5 flex items-center justify-center transition-colors duration-200 ${
+                ativo ? "bg-[#C2410C]" : "bg-red-500"
+              }`}
+            >
+              {alerta}
+            </span>
+          )}
+        </button>
+      </li>
+    );
+  };
 
   const inp = "campo";
   const filtroSel = "campo campo-sm";
@@ -498,7 +680,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       className="saga-app bg-[#F4F6F9] text-gray-800 flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible print:bg-white"
       onChangeCapture={() => modal && setSujo(true)}
     >
-      <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#6b7280} @page{size:landscape;margin:10mm}`}</style>
+      <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#6b7280} nextjs-portal{display:none!important} @page{size:landscape;margin:10mm}`}</style>
 
       {sidebarOpen && (
         <div
@@ -511,16 +693,16 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       <aside
         className={`print:hidden ${
           sidebarOpen ? "fixed inset-y-0 left-0 z-30 w-64 flex md:static" : "hidden md:flex md:w-[4.5rem]"
-        } bg-[#1A2332] text-white flex-col justify-between shrink-0 transition-all duration-300 relative overflow-y-auto`}
+        } bg-[linear-gradient(270deg,#243247_0%,#1A2332_55%,#131A26_100%)] text-white flex-col justify-between shrink-0 transition-all duration-300 relative overflow-hidden`}
       >
-        <div>
-          <div className="px-4 pt-5 pb-4 mx-2 border-b border-white/10 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-[14px] bg-white text-[#B45309] flex items-center justify-center font-black text-lg shrink-0">US</div>
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="px-4 pt-3.5 pb-3 mx-2 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-10 h-10 rounded-[12px] bg-white text-[#B45309] flex items-center justify-center font-black text-base shrink-0">US</div>
               <div className={`${sidebarOpen ? "" : "hidden"} flex flex-col leading-tight min-w-0`}>
-                <span className="text-[11px] font-extrabold tracking-[0.12em] text-[#F7A428]">FACULDADE</span>
-                <span className="text-[17px] font-black tracking-wide">UNISAPIENS</span>
-                <span className="text-[10px] tracking-[0.25em] text-slate-400 mt-0.5">SAGA</span>
+                <span className="text-[10px] font-extrabold tracking-[0.12em] text-[#F7A428]">FACULDADE</span>
+                <span className="text-[16px] font-black tracking-wide">UNISAPIENS</span>
+                <span className="text-[9px] tracking-[0.25em] text-slate-400">SAGA</span>
               </div>
             </div>
             <button onClick={() => setSidebarOpen((v) => !v)} className={`${sidebarOpen ? "" : "hidden"} w-8 h-8 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition shrink-0`} title="Recolher menu" aria-label="Recolher menu">
@@ -528,10 +710,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             </button>
           </div>
 
-          <nav aria-label="Menu principal" className="p-3 space-y-5 text-sm">
+          <nav aria-label="Menu principal" className="py-2.5 pl-0 pr-0 space-y-3 text-sm flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Operacional</p>
-              <ul className="space-y-1">
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1 px-6`}>Operacional</p>
+              <ul className="space-y-0.5">
                 {navBtn("dashboard", "fa-solid fa-gauge", "Dashboard")}
                 {navBtn("gerador", "fa-solid fa-calendar-days", "Grade do Semestre")}
                 {navBtn("horario-semana", "fa-solid fa-calendar-week", "Horário da Semana")}
@@ -540,8 +722,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               </ul>
             </div>
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Cadastros</p>
-              <ul className="space-y-1">
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1 px-6`}>Cadastros</p>
+              <ul className="space-y-0.5">
                 {navBtn("turmas", "fa-solid fa-people-group", "Cursos e Turmas")}
                 {navBtn("professores", "fa-solid fa-chalkboard-user", "Professores")}
                 {navBtn("salas", "fa-solid fa-door-open", "Salas e Laboratórios")}
@@ -549,16 +731,16 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
               </ul>
             </div>
             <div>
-              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1.5 px-3.5`}>Sistema</p>
-              <ul className="space-y-1">
+              <p className={`${sidebarOpen ? "" : "hidden"} text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-1 px-6`}>Sistema</p>
+              <ul className="space-y-0.5">
                 {usuario.admin && navBtn("usuarios", "fa-solid fa-user-shield", "Usuários", contasPendentes)}
-                {navBtn("whatsapp", "fa-brands fa-whatsapp", "Status do Bot")}
+                {navBtn("whatsapp", "fa-solid fa-paper-plane", "Status do Bot")}
               </ul>
             </div>
           </nav>
         </div>
 
-        <div className="mx-2 px-2 pt-3.5 pb-4 border-t border-white/10 flex items-center gap-2.5 overflow-hidden">
+        <div className="mx-2 px-2 py-2.5 border-t border-white/10 flex items-center gap-2.5 overflow-hidden shrink-0">
           <div title={`${usuario.nome} · ${usuario.email}`} className="w-9 h-9 rounded-full bg-gradient-to-br from-[#F39200] to-[#C2410C] flex items-center justify-center font-black text-sm shrink-0">
             {usuario.nome.charAt(0).toUpperCase()}
           </div>
@@ -635,7 +817,12 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   <div className="relative flex flex-wrap gap-2">
                     <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dashboard.length} aula(s)</span>
                     {(() => { const o = ocupacao(dataVer); return o ? <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{o.livres} de {o.total} salas livres</span> : null; })()}
-                    {ehHoje && <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dados.turmas.filter((t) => t.alteradaHoje).length} troca(s) registrada(s) hoje</span>}
+                    <span className="px-3.5 py-1.5 rounded-full bg-white/15 text-[13px] font-bold">{dashboard.filter((t) => t.alteradaHoje).length} alteração(ões) {ehHoje ? "hoje" : "neste dia"}</span>
+                    {dashboard.some((t) => t.canceladaHoje) && (
+                      <span className="px-3.5 py-1.5 rounded-full bg-red-500/80 text-white text-[13px] font-bold">
+                        {dashboard.filter((t) => t.canceladaHoje).length} aula(s) cancelada(s)
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -689,10 +876,17 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   </div>
                 )}
                 {dashboard.map((d) => (
-                  <div key={d.id} className="cartao p-4 space-y-2.5">
+                  <div key={d.id} className={`cartao p-4 space-y-2.5 ${d.canceladaHoje ? "border-red-200 bg-red-50/40" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="font-bold text-sm text-gray-900">{d.turma}</div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`font-bold text-sm ${d.canceladaHoje ? "text-red-800 line-through" : "text-gray-900"}`}>{d.turma}</span>
+                          {d.canceladaHoje && (
+                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-extrabold">
+                              AULA CANCELADA
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs font-semibold text-gray-700 mt-0.5">{d.nome}</div>
                       </div>
                       <span className="text-[11px] bg-gray-100 px-2 py-0.5 rounded font-semibold shrink-0">{d.formato}</span>
@@ -700,16 +894,29 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     <div className="text-xs text-gray-600">
                       <span className="font-semibold">{d.prof}</span> · {d.horario}
                     </div>
+                    {d.canceladaHoje && d.motivoCancelamento && (
+                      <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1">
+                        <b>Motivo:</b> {d.motivoCancelamento}
+                      </div>
+                    )}
                     {d.tambemAtende.length > 0 && <div className="text-[11px] text-blue-600">Também atende: {d.tambemAtende.join(", ")}</div>}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100">
                       <div>
-                        <span className="font-bold text-sm text-[#B45309]">{d.sala}</span>
-                        <span className="text-xs text-gray-500 ml-1.5">({d.predio})</span>
-                        {d.alteradaHoje && <span className="ml-2 text-[10px] font-semibold text-blue-600">alterada hoje</span>}
+                        {d.canceladaHoje ? (
+                          <span className="font-extrabold text-sm text-red-700">SEM AULA</span>
+                        ) : (
+                          <>
+                            <span className="font-bold text-sm text-[#B45309]">{d.sala}</span>
+                            <span className="text-xs text-gray-500 ml-1.5">({d.predio})</span>
+                          </>
+                        )}
+                        {d.alteradaHoje && !d.canceladaHoje && <span className="ml-2 text-[10px] font-semibold text-blue-600">alterada {ehHoje ? "hoje" : "neste dia"}</span>}
                       </div>
-                      <div className="flex items-center gap-2">
-                        {ehHoje && <button onClick={() => abrirEdicao(d)} className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>}
-                        <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-brands fa-whatsapp"></i> Aviso</button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button onClick={() => abrirEdicao(d)} title="Alterar sala, professor ou cancelar aula" className="btn btn-icone">
+                          <i className="fa-solid fa-pen"></i>
+                        </button>
+                        <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-solid fa-bell"></i> Aviso</button>
                       </div>
                     </div>
                   </div>
@@ -741,31 +948,83 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                         </span>
                       </td></tr>
                     )}
-                    {dashboard.map((d) => (
-                      <tr key={d.id} className="hover:bg-gray-50 transition">
-                        <td className="p-4">
-                          <div className="font-bold text-gray-900">{d.turma}</div>
-                          <div className="text-xs text-gray-600">{d.nome} - {d.prof} · {d.horario}</div>
-                          {d.tambemAtende.length > 0 && <div className="text-xs text-blue-600">Também atende: {d.tambemAtende.join(", ")}</div>}
-                        </td>
-                        <td className="p-4"><span className="text-xs bg-gray-100 px-2 py-1 rounded font-semibold">{d.formato}</span></td>
-                        <td className="p-4 font-bold text-[#B45309]">
-                          {d.sala}
-                          {d.alteradaHoje && <div className="text-[10px] font-semibold text-blue-600">alterada hoje</div>}
-                        </td>
-                        <td className="p-4 text-xs text-gray-500">{d.predio}</td>
-                        <td className="p-4 text-center">
-                          <span className="bg-orange-100 text-[#B45309] text-xs px-2.5 py-1 rounded-full font-bold">{d.rodizio !== "Não" ? "Rodízio Ativo" : "Alocação Fixa"}</span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex justify-center gap-2">
-                            {/* O lápis grava a troca para HOJE: só aparece quando o dia exibido é hoje */}
-                            {ehHoje && <button onClick={() => abrirEdicao(d)} className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>}
-                            <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-brands fa-whatsapp"></i> Aviso</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {dashboard.map((d) => {
+                      const ehLab = d.sala.toUpperCase().startsWith("LAB") || d.reqespaco === "Laboratório/Prático";
+                      const ehEad = d.sala === "EAD" || d.formato === "Assíncrona" || d.formato === "Síncrona";
+                      return (
+                        <tr key={d.id} className={`transition ${d.canceladaHoje ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-gray-50/90"}`}>
+                          <td className="p-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`font-extrabold text-[14px] tracking-tight ${d.canceladaHoje ? "text-red-800 line-through" : "text-[#1A2332]"}`}>{d.turma}</span>
+                              {d.horario !== "—" && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                  <i className="fa-regular fa-clock text-[10px] text-[#B45309]"></i>
+                                  {d.horario}
+                                </span>
+                              )}
+                              {d.canceladaHoje && (
+                                <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-extrabold">
+                                  AULA CANCELADA
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                              <span className="font-semibold text-gray-800">{d.nome}</span>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-gray-500 font-medium">
+                                <i className="fa-solid fa-chalkboard-user text-[10px] text-gray-400 mr-1"></i>
+                                {d.prof}
+                              </span>
+                            </div>
+                            {d.canceladaHoje && d.motivoCancelamento && (
+                              <div className="text-xs text-red-700 mt-1"><b>Motivo:</b> {d.motivoCancelamento}</div>
+                            )}
+                            {d.tambemAtende.length > 0 && <div className="text-xs text-blue-600 mt-0.5">Também atende: {d.tambemAtende.join(", ")}</div>}
+                          </td>
+                          <td className="p-4"><span className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg font-semibold">{d.formato}</span></td>
+                          <td className="p-4 font-bold">
+                            {d.canceladaHoje ? (
+                              <>
+                                <span className="inline-flex items-center gap-1.5 text-xs bg-red-100 text-red-700 px-2.5 py-1 rounded-lg font-extrabold">
+                                  <i className="fa-solid fa-ban text-[10px]"></i> SEM AULA
+                                </span>
+                                <div className="text-[10px] font-semibold text-red-600 mt-0.5">cancelada {ehHoje ? "hoje" : "neste dia"}</div>
+                              </>
+                            ) : (
+                              <>
+                                <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-extrabold ${
+                                  ehEad
+                                    ? "bg-slate-100 text-slate-700"
+                                    : ehLab
+                                      ? "bg-[#FFF4E5] text-[#B45309] border border-orange-200/70"
+                                      : "bg-gray-100 text-[#1A2332]"
+                                }`}>
+                                  <i className={`fa-solid ${ehEad ? "fa-globe" : ehLab ? "fa-computer" : "fa-door-open"} text-[10px]`}></i>
+                                  {d.sala}
+                                </span>
+                                {d.alteradaHoje && <div className="text-[10px] font-semibold text-blue-600 mt-0.5">alterada {ehHoje ? "hoje" : "neste dia"}</div>}
+                              </>
+                            )}
+                          </td>
+                          <td className="p-4 text-xs text-gray-500 font-medium">{d.canceladaHoje ? "—" : d.predio}</td>
+                          <td className="p-4 text-center">
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                              d.rodizio !== "Não" ? "bg-orange-100 text-[#B45309]" : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {d.rodizio !== "Não" ? "Rodízio Ativo" : "Alocação Fixa"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <div className="flex justify-center items-center gap-2">
+                              <button onClick={() => abrirEdicao(d)} title="Alterar sala, professor ou cancelar aula" className="btn btn-icone">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-solid fa-bell"></i> Aviso</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -915,23 +1174,49 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     {grade.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400">Nenhuma turma com esses filtros.</td></tr>}
                     {grade.map((d) => {
                       const erro = d.conflitos.some((c) => c.gravidade === "ERRO");
+                      const ehLab = d.sala.toUpperCase().startsWith("LAB") || d.reqespaco === "Laboratório/Prático";
+                      const ehEad = d.sala === "EAD" || d.formato === "Assíncrona" || d.formato === "Síncrona";
                       return (
-                        <tr key={d.id} className="hover:bg-gray-50 align-top">
-                          <td className="p-3.5 font-bold text-gray-700">
-                            {d.dia || "—"}
-                            {d.horario !== "—" && <div className="text-xs font-normal text-gray-400">{d.horario}</div>}
-                          </td>
-                          <td className="p-3.5 font-semibold">
-                            {d.turma} {d.alunos != null && <span className="text-xs font-normal text-gray-500">({d.alunos} alunos)</span>}
+                        <tr key={d.id} className="hover:bg-gray-50/90 align-top transition">
+                          <td className="p-3.5 font-bold text-[#1A2332] whitespace-nowrap">
+                            <div>{d.dia || "EAD"}</div>
+                            {d.horario !== "—" && (
+                              <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                <i className="fa-regular fa-clock text-[9px] text-[#B45309]"></i>
+                                {d.horario}
+                              </span>
+                            )}
                           </td>
                           <td className="p-3.5">
-                            {d.nome}
-                            <div className="text-xs text-gray-500">{d.prof}</div>
-                            {d.consome && <div className="text-xs text-blue-600">assiste turma de outro curso</div>}
+                            <div className="font-extrabold text-[#1A2332]">{d.turma}</div>
+                            {d.alunos != null && (
+                              <div className="text-[11px] font-semibold text-gray-500 mt-0.5 tabular-nums">
+                                <i className="fa-solid fa-user-group text-[9px] text-gray-400 mr-1"></i>
+                                {d.alunos} alunos
+                              </div>
+                            )}
                           </td>
-                          <td className="p-3.5"><span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{d.formato}</span></td>
-                          <td className="p-3.5 font-bold text-[#B45309]">
-                            {d.sala} <span className="text-xs font-normal text-gray-500">({d.reqespaco})</span>
+                          <td className="p-3.5">
+                            <div className="font-semibold text-gray-900">{d.nome}</div>
+                            <div className="text-xs text-gray-500 font-medium mt-0.5">
+                              <i className="fa-solid fa-chalkboard-user text-[10px] text-gray-400 mr-1"></i>
+                              {d.prof}
+                            </div>
+                            {d.consome && <div className="text-xs text-blue-600 mt-0.5 font-medium">assiste turma de outro curso</div>}
+                          </td>
+                          <td className="p-3.5"><span className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg font-semibold">{d.formato}</span></td>
+                          <td className="p-3.5">
+                            <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-extrabold ${
+                              ehEad
+                                ? "bg-slate-100 text-slate-700"
+                                : ehLab
+                                  ? "bg-[#FFF4E5] text-[#B45309] border border-orange-200/70"
+                                  : "bg-gray-100 text-[#1A2332]"
+                            }`}>
+                              <i className={`fa-solid ${ehEad ? "fa-globe" : ehLab ? "fa-computer" : "fa-door-open"} text-[10px]`}></i>
+                              {d.sala}
+                            </span>
+                            <div className="text-[11px] text-gray-400 mt-1">{d.reqespaco}</div>
                           </td>
                           <td className="p-3.5 text-center">
                             {d.conflitos.length === 0 ? <Selo tipo="ok" /> : <Selo tipo={erro ? "erro" : "confirmar"} />}
@@ -963,134 +1248,1020 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
           {tab === "historico" && <TelaHistorico avisos={dados.avisos} admin={usuario.admin} />}
 
           {/* CADASTROS BASE */}
-          {tab === "turmas" && (
-            <section className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-[#1A2332]">Cursos & Turmas</h3>
-                <button onClick={() => abrirCadastro("turma")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Nova Turma</button>
-              </div>
-              <div className="p-4 cartao">
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {dados.grupos.map((t) => (
-                    <li key={t.id} className="py-3 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-gray-900">{t.nome}</p>
-                        <p className="text-xs text-gray-500">Alunos: {t.alunos ?? "—"} | WA: {t.wa}</p>
-                      </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("turma", t.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("turma", t.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+          {tab === "turmas" && (() => {
+            const termoTurma = turmasBusca.trim().toLowerCase();
+            const cursosFiltrados = dados.cursos.filter(
+              (c) => !termoTurma || `${c.nome} ${c.sigla}`.toLowerCase().includes(termoTurma)
+            );
+            const gruposFiltrados = dados.grupos.filter((t) => {
+              if (turmasCursoFiltro !== null && t.cursoId !== turmasCursoFiltro) return false;
+              if (!termoTurma) return true;
+              return `${t.nome} ${t.cursoNome} ${t.cursoSigla} ${rotuloBlocoTurma(t)}`.toLowerCase().includes(termoTurma);
+            });
 
-          {tab === "professores" && (
-            <section className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-[#1A2332]">Corpo Docente</h3>
-                <button onClick={() => abrirCadastro("professor")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Novo Professor</button>
-              </div>
-              <div className="p-4 cartao">
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {dados.professores.map((p) => (
-                    <li key={p.id} className="py-2.5 flex justify-between items-center">
-                      <div>
-                        <span className="font-bold text-gray-900">{p.nome}</span>
-                        <p className="text-xs text-gray-500">{p.email}</p>
-                      </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("professor", p.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("professor", p.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+            // Agrupa turmas por curso para manter a organização visual nos blocos
+            const gruposPorCurso = cursosFiltrados
+              .map((c) => ({
+                curso: c,
+                turmas: gruposFiltrados.filter((t) => t.cursoId === c.id),
+              }))
+              .filter((g) => g.turmas.length > 0);
 
-          {tab === "salas" && (
-            <section className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-[#1A2332]">Salas & Laboratórios</h3>
-                <button onClick={() => abrirCadastro("sala")} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Novo Espaço</button>
-              </div>
-              <div className="p-4 cartao">
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {dados.salas.map((s) => (
-                    <li key={s.id} className="py-3 flex justify-between items-center">
-                      <div>
-                        <span className="font-bold text-[#B45309]">{s.nome}</span>
-                        <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded ml-2">{s.tipo}</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Capacidade: {s.cap ?? "—"} alunos | {s.predio}</p>
-                      </div>
-                      <span className="flex"><button onClick={() => abrirCadastro("sala", s.id)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button><button onClick={() => excluir("sala", s.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button></span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+            return (
+              <section className="space-y-5">
+                {/* Barra de ferramentas superior */}
+                <div className="flex flex-wrap justify-between items-center gap-3">
+                  <h3 className="font-bold text-[#1A2332]">Cursos & Turmas</h3>
+                  <div className="flex flex-wrap items-center gap-2 flex-1 sm:flex-initial justify-end">
+                    <div className="relative flex-1 sm:w-64 max-w-xs">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                      <input
+                        data-busca
+                        value={turmasBusca}
+                        onChange={(e) => setTurmasBusca(e.target.value)}
+                        type="text"
+                        placeholder="Buscar curso, sigla ou turma..."
+                        className="w-full pl-9 pr-8 py-2 text-xs rounded-full border border-gray-200 bg-white focus:outline-none focus:border-[#F39200]"
+                      />
+                      {turmasBusca && (
+                        <button
+                          onClick={() => setTurmasBusca("")}
+                          title="Limpar busca"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                        >
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
+                      )}
+                    </div>
 
-          {tab === "disciplinas" && (
-            <section className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-[#1A2332]">Ofertas & Disciplinas</h3>
-                <button onClick={abrirNovaOferta} className="btn btn-principal"><i className="fa-solid fa-plus"></i> Cadastrar Oferta</button>
-              </div>
-              <div className="p-4 cartao">
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {[...dados.turmas].sort(porDiaHora).map((d) => (
-                    <li key={d.id} className="py-3 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-gray-900">{d.nome} — <span className="text-xs font-normal text-gray-600">{d.turma}</span></p>
-                        <p className="text-xs text-gray-500">{d.prof} | {d.dia || "EAD"}{d.cht || d.chp ? ` | CH: ${d.cht || "0h"}/${d.chp || "0h"}` : ""}</p>
-                      </div>
-                      <span className="flex items-center">
-                        {d.consome ? (
-                          <span className="text-xs text-blue-600 mr-1" title="Edite a aula principal (a do outro curso)">assiste outro curso</span>
-                        ) : (
-                          <button onClick={() => abrirEdicaoAula(d)} title="Editar" className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>
-                        )}
-                        <button onClick={() => excluir("aula", d.id)} title="Excluir" className="btn btn-icone hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+                    <div className="inline-flex rounded-full border border-gray-200 bg-white p-0.5">
+                      <button
+                        onClick={() => setTurmasModo("lista")}
+                        title="Visualização em lista"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          turmasModo === "lista" ? "bg-[#1A2332] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"
+                        }`}
+                      >
+                        <i className="fa-solid fa-list"></i>
+                      </button>
+                      <button
+                        onClick={() => setTurmasModo("blocos")}
+                        title="Visualização em blocos compactos"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          turmasModo === "blocos" ? "bg-[#1A2332] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"
+                        }`}
+                      >
+                        <i className="fa-solid fa-grip"></i>
+                      </button>
+                    </div>
+
+                    <button onClick={() => abrirCadastro("curso")} className="btn btn-contorno">
+                      <i className="fa-solid fa-graduation-cap"></i> Novo Curso
+                    </button>
+                    <button onClick={() => abrirCadastro("turma")} className="btn btn-principal">
+                      <i className="fa-solid fa-plus"></i> Nova Turma
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cursos Cadastrados */}
+                <div className="p-4 cartao space-y-3">
+                  <div className="flex flex-wrap justify-between items-center gap-2 border-b border-gray-100 pb-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
+                      Cursos Cadastrados ({cursosFiltrados.length})
+                    </h4>
+                    {turmasCursoFiltro !== null && (
+                      <button
+                        onClick={() => setTurmasCursoFiltro(null)}
+                        className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1"
+                      >
+                        <i className="fa-solid fa-filter-circle-xmark"></i> Mostrar todas as turmas
+                      </button>
+                    )}
+                  </div>
+
+                  {cursosFiltrados.length === 0 ? (
+                    <p className="text-xs text-gray-500 py-2">Nenhum curso encontrado.</p>
+                  ) : turmasModo === "blocos" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {cursosFiltrados.map((c) => {
+                        const s = c.sigla.toUpperCase();
+                        const siglaBloco = s.length === 2 ? `${s[0]}.${s[1]}` : s;
+                        const cor = corDoCurso(c.id);
+                        const selecionado = turmasCursoFiltro === c.id;
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => setTurmasCursoFiltro(selecionado ? null : c.id)}
+                            title={`${c.nome} — clique para filtrar as turmas deste curso`}
+                            className={`group cursor-pointer inline-flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-xl border transition select-none ${
+                              selecionado
+                                ? `${cor.ativo} shadow-sm`
+                                : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/80"
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${selecionado ? "bg-white" : cor.ponto}`}></span>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className={`font-extrabold text-sm tracking-tight ${selecionado ? "text-white" : "text-[#1A2332]"}`}>
+                                {siglaBloco}
+                              </span>
+                              <span className={`text-[11px] font-medium hidden sm:inline ${selecionado ? "text-white/85" : "text-gray-500"}`}>
+                                {c.nome}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                selecionado ? "bg-black/20 text-white" : cor.selo
+                              }`}
+                            >
+                              {c.turmas}
+                            </span>
+                            <span
+                              className="flex items-center gap-0.5 ml-0.5 opacity-60 group-hover:opacity-100 transition"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => abrirCadastro("curso", c.id)}
+                                title="Editar curso"
+                                className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] ${
+                                  selecionado ? "hover:bg-white/20 text-white" : "hover:bg-gray-200/70 text-gray-600"
+                                }`}
+                              >
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button
+                                onClick={() => excluir("curso", c.id)}
+                                title="Excluir curso"
+                                className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] ${
+                                  selecionado ? "hover:bg-white/20 text-white" : "hover:bg-red-50 text-gray-600 hover:text-red-600"
+                                }`}
+                              >
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 text-sm">
+                      {cursosFiltrados.map((c) => {
+                        const cor = corDoCurso(c.id);
+                        return (
+                          <div
+                            key={c.id}
+                            className={`p-3 rounded-[14px] border border-gray-200 border-l-4 ${cor.borda} flex justify-between items-center bg-gray-50/50`}
+                          >
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 truncate">{c.nome}</p>
+                              <p className="text-xs text-gray-500">Sigla: <b>{c.sigla}</b> • {c.turmas} turma(s)</p>
+                            </div>
+                            <span className="flex shrink-0">
+                              <button onClick={() => abrirCadastro("curso", c.id)} title="Editar curso" className="btn btn-icone">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button onClick={() => excluir("curso", c.id)} title="Excluir curso" className="btn btn-icone hover:text-red-600">
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Turmas Cadastradas */}
+                <div className="p-4 cartao space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
+                      Turmas Cadastradas ({gruposFiltrados.length})
+                    </h4>
+                    {turmasModo === "blocos" && (
+                      <span className="text-[11px] text-gray-400">Clique em um bloco para editar a turma</span>
+                    )}
+                  </div>
+
+                  {gruposFiltrados.length === 0 ? (
+                    <p className="text-xs text-gray-500 py-2">Nenhuma turma encontrada.</p>
+                  ) : turmasModo === "blocos" ? (
+                    <div className="space-y-4">
+                      {gruposPorCurso.map(({ curso: c, turmas: lista }) => {
+                        const cor = corDoCurso(c.id);
+                        return (
+                          <div key={c.id} className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${cor.ponto}`}></span>
+                              <span className="text-xs font-bold text-gray-700">{c.nome}</span>
+                              <span className="text-[11px] text-gray-400">({lista.length})</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                              {lista.map((t) => {
+                                const ehVesp = t.turno === "VESPERTINO" || /\bVESP/i.test(t.nome);
+                                const temWa = t.wa && t.wa !== "—";
+                                return (
+                                  <div
+                                    key={t.id}
+                                    onClick={() => abrirCadastro("turma", t.id)}
+                                    title={`${t.nome} — Clique para editar`}
+                                    className={`group relative cursor-pointer px-3 py-2.5 rounded-xl border border-gray-200 border-l-4 ${cor.borda} bg-white hover:shadow-md hover:border-gray-300 transition flex items-center justify-between gap-2`}
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-extrabold text-sm text-[#1A2332] tracking-tight truncate">
+                                        {rotuloBlocoTurma(t)}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 mt-1 text-[10px] font-semibold text-gray-500">
+                                        <span className={`px-1.5 py-0.2 rounded ${ehVesp ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                          {ehVesp ? "Vesp" : "Not"}
+                                        </span>
+                                        {t.alunos != null && (
+                                          <span title="Quantidade de alunos">• {t.alunos} al.</span>
+                                        )}
+                                        {temWa && (
+                                          <i className="fa-solid fa-link text-emerald-600" title="Link de grupo configurado"></i>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        excluir("turma", t.id);
+                                      }}
+                                      title="Excluir turma"
+                                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition shrink-0"
+                                    >
+                                      <i className="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-200 text-sm">
+                      {gruposFiltrados.map((t) => (
+                        <li key={t.id} className="py-3 flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-gray-900">{t.nome}</p>
+                            <p className="text-xs text-gray-500">Curso: {t.cursoNome} | Alunos: {t.alunos ?? "—"} | WA: {t.wa}</p>
+                          </div>
+                          <span className="flex">
+                            <button onClick={() => abrirCadastro("turma", t.id)} title="Editar turma" className="btn btn-icone">
+                              <i className="fa-solid fa-pen"></i>
+                            </button>
+                            <button onClick={() => excluir("turma", t.id)} title="Excluir turma" className="btn btn-icone hover:text-red-600">
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {tab === "professores" && (() => {
+            const termoProf = profBusca.trim().toLowerCase();
+            const profsFiltrados = dados.professores.filter(
+              (p) => !termoProf || `${p.nome} ${p.email}`.toLowerCase().includes(termoProf)
+            );
+            return (
+              <section className="space-y-4">
+                <div className="flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-[#1A2332]">Corpo Docente</h3>
+                    <p className="text-xs text-gray-500">{dados.professores.length} docente(s) cadastrado(s) no semestre</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                      <input
+                        type="text"
+                        value={profBusca}
+                        onChange={(e) => setProfBusca(e.target.value)}
+                        data-busca
+                        placeholder="Buscar docente ou e-mail..."
+                        className="campo campo-sm !w-52 sm:!w-64 !pl-8 !rounded-full bg-white shadow-2xs"
+                      />
+                    </div>
+                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setProfModo("lista")}
+                        title="Visualizar em lista"
+                        aria-label="Visualizar em lista"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          profModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-list"></i>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfModo("blocos")}
+                        title="Visualizar em blocos"
+                        aria-label="Visualizar em blocos"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          profModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-grip"></i>
+                      </button>
+                    </div>
+                    <button onClick={() => abrirCadastro("professor")} className="btn btn-principal">
+                      <i className="fa-solid fa-plus"></i> Novo Professor
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 cartao space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
+                      Docentes Cadastrados ({profsFiltrados.length})
+                    </span>
+                  </div>
+
+                  {profsFiltrados.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-6 text-center">Nenhum professor encontrado com esse filtro.</p>
+                  ) : profModo === "blocos" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {profsFiltrados.map((p) => {
+                        const aulasProf = dados.turmas.filter((t) => !t.consome && (t.profId === p.id || t.profGrade === p.nome));
+                        const diasLeciona = [...new Set(aulasProf.map((a) => a.dia).filter(Boolean))];
+                        return (
+                          <div
+                            key={p.id}
+                            className="group relative overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-4 shadow-2xs hover:shadow-md hover:border-[#F39200]/60 transition flex flex-col justify-between gap-3"
+                          >
+                            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1A2332] to-[#F39200]" />
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-[#1A2332] text-[#F39200] font-black text-xs flex items-center justify-center shrink-0">
+                                {iniciais(p.nome)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-extrabold text-sm text-[#1A2332] truncate" title={p.nome}>
+                                  {p.nome}
+                                </div>
+                                <p className="text-[11px] text-gray-500 truncate mt-0.5" title={p.email}>
+                                  {p.email}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                              <span className="px-2 py-0.5 rounded-full bg-[#FFF4E5] text-[#B45309] font-extrabold tabular-nums">
+                                {aulasProf.length} {aulasProf.length === 1 ? "aula" : "aulas"}
+                              </span>
+                              {diasLeciona.map((dia) => (
+                                <span key={dia} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-semibold">
+                                  {dia.slice(0, 3)}
+                                </span>
+                              ))}
+                              {p.dias.length > 0 && (
+                                <span
+                                  title={`Indisponível: ${p.dias.join(", ")}`}
+                                  className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-bold"
+                                >
+                                  <i className="fa-solid fa-calendar-xmark mr-1 text-[10px]"></i>
+                                  {p.dias.length} rest.
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-gray-100">
+                              <button onClick={() => abrirCadastro("professor", p.id)} title="Editar professor" className="btn btn-icone !w-7 !h-7 text-xs">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button onClick={() => excluir("professor", p.id)} title="Excluir professor" className="btn btn-icone !w-7 !h-7 text-xs hover:text-red-600">
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-200 text-sm">
+                      {profsFiltrados.map((p) => {
+                        const qtdAulas = dados.turmas.filter((t) => !t.consome && (t.profId === p.id || t.profGrade === p.nome)).length;
+                        return (
+                          <li key={p.id} className="py-3 flex justify-between items-center gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-[#1A2332] text-[#F39200] font-black text-xs flex items-center justify-center shrink-0">
+                                {iniciais(p.nome)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-bold text-[#1A2332]">{p.nome}</span>
+                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FFF4E5] text-[#B45309] font-extrabold tabular-nums">
+                                    {qtdAulas} aula(s)
+                                  </span>
+                                  {p.dias.length > 0 && (
+                                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-bold">
+                                      Restrição: {p.dias.join(", ")}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 truncate">{p.email}</p>
+                              </div>
+                            </div>
+                            <span className="flex shrink-0">
+                              <button onClick={() => abrirCadastro("professor", p.id)} title="Editar" className="btn btn-icone">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button onClick={() => excluir("professor", p.id)} title="Excluir" className="btn btn-icone hover:text-red-600">
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {tab === "salas" && (() => {
+            const termoSala = salasBusca.trim().toLowerCase();
+            const salasFiltradas = dados.salas
+              .filter((s) => salasTipoFiltro === "TODOS" || s.tipo === salasTipoFiltro)
+              .filter((s) => !termoSala || `${s.nome} ${s.tipo} ${s.predio}`.toLowerCase().includes(termoSala));
+            return (
+              <section className="space-y-4">
+                <div className="flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-[#1A2332]">Salas & Laboratórios</h3>
+                    <p className="text-xs text-gray-500">{dados.salas.length} espaço(s) físico(s) controlado(s) pelo sistema</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                      <input
+                        type="text"
+                        value={salasBusca}
+                        onChange={(e) => setSalasBusca(e.target.value)}
+                        data-busca
+                        placeholder="Buscar LAB, prédio..."
+                        className="campo campo-sm !w-48 sm:!w-60 !pl-8 !rounded-full bg-white shadow-2xs"
+                      />
+                    </div>
+                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setSalasModo("lista")}
+                        title="Visualizar em lista"
+                        aria-label="Visualizar em lista"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          salasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-list"></i>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSalasModo("blocos")}
+                        title="Visualizar em blocos"
+                        aria-label="Visualizar em blocos"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          salasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-grip"></i>
+                      </button>
+                    </div>
+                    <button onClick={() => abrirCadastro("sala")} className="btn btn-principal">
+                      <i className="fa-solid fa-plus"></i> Novo Espaço
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 cartao space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
+                      Espaços Cadastrados ({salasFiltradas.length})
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {([
+                        ["TODOS", "Todos"],
+                        ["Laboratório/Prático", "Laboratórios"],
+                        ["Presencial Teórico", "Salas Teóricas"],
+                      ] as const).map(([val, rotulo]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setSalasTipoFiltro(val)}
+                          className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+                            salasTipoFiltro === val
+                              ? "bg-[#1A2332] text-white shadow-xs"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {salasFiltradas.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-6 text-center">Nenhum espaço encontrado com esse filtro.</p>
+                  ) : salasModo === "blocos" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {salasFiltradas.map((s) => {
+                        const ehLab = s.tipo === "Laboratório/Prático";
+                        const aulasNaSala = dados.turmas.filter((t) => !t.consome && (t.salaId === s.id || t.salaGrade === s.nome));
+                        return (
+                          <div
+                            key={s.id}
+                            className="group relative overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-4 shadow-2xs hover:shadow-md hover:border-[#F39200]/60 transition flex flex-col justify-between gap-3"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`absolute inset-x-0 top-0 h-1 ${
+                                ehLab ? "bg-gradient-to-r from-[#F39200] to-[#C2410C]" : "bg-[#1A2332]"
+                              }`}
+                            />
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 ${
+                                    ehLab ? "bg-[#FFF4E5] text-[#B45309]" : "bg-gray-100 text-[#1A2332]"
+                                  }`}
+                                >
+                                  <i className={`fa-solid ${ehLab ? "fa-computer" : "fa-door-open"}`}></i>
+                                </div>
+                                <div>
+                                  <div className="font-black text-sm text-[#1A2332]">{s.nome}</div>
+                                  <div className="text-[11px] text-gray-500">{s.predio}</div>
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold shrink-0 ${
+                                  ehLab ? "bg-[#FFF4E5] text-[#B45309]" : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {ehLab ? "Laboratório" : "Sala Teórica"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                              <div className="flex items-center gap-2 text-[11px] font-bold text-gray-600 tabular-nums">
+                                <span title="Capacidade máxima">
+                                  <i className="fa-solid fa-chair text-gray-400 mr-1"></i>
+                                  {s.cap ?? "—"} lug.
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-[#B45309]" title="Aulas alocadas na semana">
+                                  {aulasNaSala.length} aula(s)/sem
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => abrirCadastro("sala", s.id)} title="Editar espaço" className="btn btn-icone !w-7 !h-7 text-xs">
+                                  <i className="fa-solid fa-pen"></i>
+                                </button>
+                                <button onClick={() => excluir("sala", s.id)} title="Excluir espaço" className="btn btn-icone !w-7 !h-7 text-xs hover:text-red-600">
+                                  <i className="fa-solid fa-trash"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-200 text-sm">
+                      {salasFiltradas.map((s) => {
+                        const aulasNaSala = dados.turmas.filter((t) => !t.consome && (t.salaId === s.id || t.salaGrade === s.nome)).length;
+                        return (
+                          <li key={s.id} className="py-3 flex justify-between items-center gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-extrabold text-[#B45309]">{s.nome}</span>
+                                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-lg font-semibold">{s.tipo}</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FFF4E5] text-[#B45309] font-extrabold tabular-nums">
+                                  {aulasNaSala} aula(s)/semana
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 tabular-nums">
+                                Capacidade: <b>{s.cap ?? "—"}</b> alunos · {s.predio}
+                              </p>
+                            </div>
+                            <span className="flex shrink-0">
+                              <button onClick={() => abrirCadastro("sala", s.id)} title="Editar" className="btn btn-icone">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                              <button onClick={() => excluir("sala", s.id)} title="Excluir" className="btn btn-icone hover:text-red-600">
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {tab === "disciplinas" && (() => {
+            const termoOferta = ofertasBusca.trim().toLowerCase();
+            const ofertasFiltradas = [...dados.turmas]
+              .filter((d) => ofertasDiaFiltro === "TODOS" || (ofertasDiaFiltro === "EAD" ? !d.dia : d.dia === ofertasDiaFiltro))
+              .filter((d) => {
+                if (ofertasCursoFiltro === "TODOS") return true;
+                const grp = dados.grupos.find((g) => g.id === d.grupoId || g.nome === d.turma);
+                return grp ? grp.cursoSigla === ofertasCursoFiltro : d.turma.startsWith(ofertasCursoFiltro);
+              })
+              .filter((d) => !termoOferta || `${d.nome} ${d.turma} ${d.prof} ${d.sala} ${d.dia}`.toLowerCase().includes(termoOferta))
+              .sort(porDiaHora);
+
+            return (
+              <section className="space-y-4">
+                <div className="flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-[#1A2332]">Ofertas & Disciplinas</h3>
+                    <p className="text-xs text-gray-500">{dados.turmas.length} oferta(s) de disciplina no semestre {dados.oferta}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                      <input
+                        type="text"
+                        value={ofertasBusca}
+                        onChange={(e) => setOfertasBusca(e.target.value)}
+                        data-busca
+                        placeholder="Buscar disciplina, turma, docente..."
+                        className="campo campo-sm !w-56 sm:!w-68 !pl-8 !rounded-full bg-white shadow-2xs"
+                      />
+                    </div>
+                    <select
+                      value={ofertasDiaFiltro}
+                      onChange={(e) => setOfertasDiaFiltro(e.target.value)}
+                      className="campo campo-sm !w-auto !rounded-full bg-white shadow-2xs text-xs font-bold"
+                    >
+                      <option value="TODOS">Todos os dias</option>
+                      {OPCOES_DIA.map(([v, l]) => (
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                      <option value="EAD">EAD / Sem dia</option>
+                    </select>
+                    <div className="inline-flex items-center rounded-full bg-white p-1 border border-gray-200 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setOfertasModo("lista")}
+                        title="Visualizar em lista"
+                        aria-label="Visualizar em lista"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          ofertasModo === "lista" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-list"></i>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOfertasModo("blocos")}
+                        title="Visualizar em blocos"
+                        aria-label="Visualizar em blocos"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition ${
+                          ofertasModo === "blocos" ? "bg-[#1A2332] text-white shadow-xs" : "text-gray-500 hover:text-[#1A2332]"
+                        }`}
+                      >
+                        <i className="fa-solid fa-grip"></i>
+                      </button>
+                    </div>
+                    <button onClick={abrirNovaOferta} className="btn btn-principal">
+                      <i className="fa-solid fa-plus"></i> Cadastrar Oferta
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 cartao space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-gray-500">
+                      Ofertas Cadastradas ({ofertasFiltradas.length})
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setOfertasCursoFiltro("TODOS")}
+                        className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+                          ofertasCursoFiltro === "TODOS"
+                            ? "bg-[#1A2332] text-white shadow-xs"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        Todos os Cursos
+                      </button>
+                      {dados.cursos.map((c) => {
+                        const s = c.sigla.length === 2 ? `${c.sigla[0]}.${c.sigla[1]}` : c.sigla;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setOfertasCursoFiltro(ofertasCursoFiltro === c.sigla ? "TODOS" : c.sigla)}
+                            className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+                              ofertasCursoFiltro === c.sigla
+                                ? "bg-[#1A2332] text-white shadow-xs"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {ofertasFiltradas.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-6 text-center">Nenhuma oferta encontrada com esses filtros.</p>
+                  ) : ofertasModo === "blocos" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {ofertasFiltradas.map((d) => (
+                        <div
+                          key={d.id}
+                          className="group relative overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-4 shadow-2xs hover:shadow-md hover:border-[#F39200]/60 transition flex flex-col justify-between gap-2.5"
+                        >
+                          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1A2332] to-[#F39200]" />
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-extrabold text-[#B45309] uppercase tracking-wider">
+                                {d.turma}
+                              </span>
+                              <span className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                {d.dia ? `${d.dia.slice(0, 3)} · ${d.horario}` : "EAD"}
+                              </span>
+                            </div>
+                            <div className="font-extrabold text-sm text-[#1A2332] mt-1 leading-snug" title={d.nome}>
+                              {d.nome}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+                              <i className="fa-solid fa-chalkboard-user text-[10px] text-gray-400"></i>
+                              <span className="truncate">{d.prof}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="px-2 py-0.5 rounded-lg bg-[#FFF4E5] text-[#B45309] font-extrabold text-[11px]">
+                                {d.salaGrade}
+                              </span>
+                              {(d.cht || d.chp) && (
+                                <span className="text-[11px] text-gray-500 font-semibold tabular-nums">
+                                  CH {d.cht || "0h"}/{d.chp || "0h"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {d.consome ? (
+                                <span className="text-[10px] text-blue-600 font-bold px-1.5" title="Edite a aula principal">
+                                  compartilhada
+                                </span>
+                              ) : (
+                                <button onClick={() => abrirEdicaoAula(d)} title="Editar oferta" className="btn btn-icone !w-7 !h-7 text-xs">
+                                  <i className="fa-solid fa-pen"></i>
+                                </button>
+                              )}
+                              <button onClick={() => excluir("aula", d.id)} title="Excluir oferta" className="btn btn-icone !w-7 !h-7 text-xs hover:text-red-600">
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-200 text-sm">
+                      {ofertasFiltradas.map((d) => (
+                        <li key={d.id} className="py-3 flex justify-between items-center gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-[#1A2332]">{d.nome}</span>
+                              <span className="text-xs font-bold text-[#B45309] bg-[#FFF4E5] px-2 py-0.5 rounded-full">{d.turma}</span>
+                              <span className="text-xs font-semibold tabular-nums text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {d.dia ? `${d.dia} · ${d.horario}` : "EAD"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {d.prof} · Sala: <b>{d.salaGrade}</b>
+                              {d.cht || d.chp ? ` · CH: ${d.cht || "0h"}/${d.chp || "0h"}` : ""}
+                            </p>
+                          </div>
+                          <span className="flex items-center shrink-0">
+                            {d.consome ? (
+                              <span className="text-xs text-blue-600 mr-1" title="Edite a aula principal (a do outro curso)">assiste outro curso</span>
+                            ) : (
+                              <button onClick={() => abrirEdicaoAula(d)} title="Editar" className="btn btn-icone">
+                                <i className="fa-solid fa-pen"></i>
+                              </button>
+                            )}
+                            <button onClick={() => excluir("aula", d.id)} title="Excluir" className="btn btn-icone hover:text-red-600">
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
 
           {tab === "usuarios" && usuario.admin && <TelaUsuarios usuarios={dados.usuarios} eu={usuario} />}
 
-          {tab === "whatsapp" && <TelaBot avisosPendentes={avisosPendentes} />}
+          {tab === "whatsapp" && (
+            <TelaBot
+              avisosPendentes={avisosPendentes}
+              telegramOk={dados.telegramOk}
+              avisos={dados.avisos}
+              assinantes={dados.assinantesTelegram}
+              grupos={dados.grupos}
+              irParaHistorico={() => setTab("historico")}
+            />
+          )}
         </div>
       </main>
 
       <Avisos />
       {/* MODAIS */}
       {trocandoSenha && <ModalSenha onFechar={() => setTrocandoSenha(false)} />}
-      {modal === "edit" && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="p-6 w-full max-w-md space-y-4 janela">
-            <h3 className="text-lg font-bold text-[#1A2332]">Alteração Pontual de Sala/Docente</h3>
+      {modal === "edit" && editando && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto janela">
+            <div>
+              <h3 className="text-lg font-bold text-[#1A2332]">Alteração ou Cancelamento de Aula</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                <b>{editando.turma}</b> · {editando.nome} ({nomeDiaVer}, {diaMes(dataVer)})
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditCancelada(false);
+                  if (!editMsgTocado) {
+                    setEditMsgCustom(textoPadraoEdicao(editando, editSala, editProf, false, editMotivo));
+                  }
+                }}
+                className={`py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                  !editCancelada ? "bg-white text-[#1A2332] shadow-xs" : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <i className="fa-solid fa-pen"></i> {editando.canceladaHoje ? "Reativar / Trocar Sala" : "Trocar Sala / Docente"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditCancelada(true);
+                  if (!editMsgTocado) {
+                    setEditMsgCustom(textoPadraoEdicao(editando, editSala, editProf, true, editMotivo));
+                  }
+                }}
+                className={`py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                  editCancelada ? "bg-red-600 text-white shadow-xs" : "text-red-700 hover:bg-red-50"
+                }`}
+              >
+                <i className="fa-solid fa-ban"></i> Cancelar Aula
+              </button>
+            </div>
+
             <div className="space-y-3 text-sm">
-              <div>
-                <label className="block font-semibold mb-1">Novo Local</label>
-                <select value={editSala} onChange={(e) => setEditSala(e.target.value)} className={inp}>
-                  {!editSala && <option value="">Sala comum</option>}
-                  {dados.salas.map((s) => <option key={s.id} value={s.id}>{s.nome} ({s.tipo})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Novo Docente</label>
-                <select value={editProf} onChange={(e) => setEditProf(e.target.value)} className={inp}>
-                  {!editProf && <option value="">A definir</option>}
-                  {dados.professores.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                </select>
+              {editCancelada ? (
+                <div className="space-y-3">
+                  <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 text-xs leading-relaxed">
+                    <i className="fa-solid fa-circle-exclamation mr-1"></i>
+                    A aula ficará marcada como <b>SEM AULA (Cancelada)</b> em <b>{diaMes(dataVer)}</b> e a sala ficará livre.
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1">Motivo do cancelamento (opcional)</label>
+                    <input
+                      type="text"
+                      value={editMotivo}
+                      onChange={(e) => {
+                        const novoMotivo = e.target.value;
+                        setEditMotivo(novoMotivo);
+                        if (!editMsgTocado) {
+                          setEditMsgCustom(textoPadraoEdicao(editando, editSala, editProf, true, novoMotivo));
+                        }
+                      }}
+                      placeholder="Ex: Atestado médico, evento acadêmico, viagem..."
+                      maxLength={240}
+                      className={inp}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {editando.canceladaHoje && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs">
+                      <i className="fa-solid fa-rotate-left mr-1"></i>
+                      Esta aula está cancelada neste dia. Ao salvar, ela será <b>reativada</b>.
+                    </div>
+                  )}
+                  <div>
+                    <label className="block font-semibold mb-1">Novo Local</label>
+                    <select
+                      value={editSala}
+                      onChange={(e) => {
+                        const novaSala = e.target.value;
+                        setEditSala(novaSala);
+                        if (!editMsgTocado) {
+                          setEditMsgCustom(textoPadraoEdicao(editando, novaSala, editProf, false, editMotivo));
+                        }
+                      }}
+                      className={inp}
+                    >
+                      {!editSala && <option value="">Sala comum</option>}
+                      {dados.salas.map((s) => {
+                        const ocupante = dashboard.find((a) => a.id !== editando.id && !a.canceladaHoje && a.sala === s.nome);
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.nome} ({s.tipo}){ocupante ? ` — Ocupado: ${ocupante.turma}` : " — Livre"}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1">Novo Docente</label>
+                    <select
+                      value={editProf}
+                      onChange={(e) => {
+                        const novoProf = e.target.value;
+                        setEditProf(novoProf);
+                        if (!editMsgTocado) {
+                          setEditMsgCustom(textoPadraoEdicao(editando, editSala, novoProf, false, editMotivo));
+                        }
+                      }}
+                      className={inp}
+                    >
+                      {!editProf && <option value="">A definir</option>}
+                      {dados.professores.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editGerarAviso}
+                      onChange={(e) => setEditGerarAviso(e.target.checked)}
+                    />
+                    Gerar aviso para a turma
+                  </label>
+                  {editGerarAviso && editMsgTocado && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditMsgTocado(false);
+                        setEditMsgCustom(textoPadraoEdicao(editando, editSala, editProf, editCancelada, editMotivo));
+                      }}
+                      className="text-[11px] font-bold text-[#B45309] hover:underline"
+                    >
+                      Restaurar texto padrão
+                    </button>
+                  )}
+                </div>
+                {editGerarAviso && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Mensagem do aviso (você pode editar antes de salvar):
+                    </label>
+                    <textarea
+                      value={editMsgTocado ? editMsgCustom : textoPadraoEdicao(editando, editSala, editProf, editCancelada, editMotivo)}
+                      onChange={(e) => {
+                        setEditMsgTocado(true);
+                        setEditMsgCustom(e.target.value);
+                      }}
+                      rows={3}
+                      className="campo text-xs w-full leading-relaxed"
+                    />
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              <button onClick={salvarEdicao} disabled={pendente} className={salvar}>Salvar</button>
+              <button
+                onClick={salvarEdicao}
+                disabled={pendente}
+                className={editCancelada ? "btn btn-vermelho" : salvar}
+              >
+                {editCancelada ? "Confirmar Cancelamento" : editando.canceladaHoje ? "Reativar e Salvar" : "Salvar"}
+              </button>
             </div>
           </div>
         </div>
@@ -1159,14 +2330,67 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
         </div>
       )}
 
+      {modal === "curso" && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="p-6 w-full max-w-md space-y-4 janela">
+            <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Curso</h3>
+            <div className="space-y-3 text-sm">
+              <div>
+                <label className="block font-semibold mb-1">Nome do Curso</label>
+                <input value={curso.nome} onChange={(e) => setCurso({ ...curso, nome: e.target.value })} type="text" placeholder="Ex: ENG. COMPUTAÇÃO" className={inp} />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Sigla <span className="text-xs font-normal text-gray-400">(opcional — gerada automaticamente se vazia)</span></label>
+                <input value={curso.sigla} onChange={(e) => setCurso({ ...curso, sigla: e.target.value })} type="text" placeholder="Ex: ENGCOMP" className={inp} />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button onClick={fechar} className={cancelar}>Cancelar</button>
+              {editId && <button onClick={() => excluir("curso", editId)} disabled={pendente} className="btn btn-perigo mr-auto"><i className="fa-solid fa-trash mr-1"></i>Excluir</button>}
+              <button onClick={salvarCurso} disabled={pendente} className={salvar}>Salvar Curso</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal === "turma" && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
           <div className="p-6 w-full max-w-md space-y-4 janela">
-            <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Turma</h3>
+            <h3 className="text-lg font-bold text-[#1A2332]">{editId ? "Editar" : "Cadastrar"} Turma & Curso</h3>
             <div className="space-y-3 text-sm">
-              <div><label className="block font-semibold mb-1">Nome / Período</label><input value={turma.nome} onChange={(e) => setTurma({ ...turma, nome: e.target.value })} type="text" placeholder="Ex: Eng. Civil (4º Período)" className={inp} /></div>
-              <div><label className="block font-semibold mb-1">Qtd Alunos</label><input value={turma.alunos} onChange={(e) => setTurma({ ...turma, alunos: e.target.value })} type="number" placeholder="Ex: 38" className={inp} /></div>
-              <div><label className="block font-semibold mb-1">Link WhatsApp</label><input value={turma.wa} onChange={(e) => setTurma({ ...turma, wa: e.target.value })} type="text" placeholder="Ex: chat.whatsapp.com/..." className={inp} /></div>
+              <div>
+                <label className="block font-semibold mb-1">Curso</label>
+                <select value={turma.cursoId} onChange={(e) => setTurma({ ...turma, cursoId: e.target.value })} className={inp}>
+                  {dados.cursos.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.nome} ({c.sigla})</option>
+                  ))}
+                  <option value="NOVO">+ Cadastrar novo curso...</option>
+                </select>
+              </div>
+              {turma.cursoId === "NOVO" && (
+                <div className="grid grid-cols-3 gap-2 p-3 rounded-[14px] bg-orange-50/60 border border-orange-200">
+                  <div className="col-span-2">
+                    <label className="block font-semibold mb-1 text-xs">Nome do Novo Curso</label>
+                    <input value={turma.novoCurso} onChange={(e) => setTurma({ ...turma, novoCurso: e.target.value })} type="text" placeholder="Ex: ARQUITETURA" className={inp} />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-xs">Sigla (opc.)</label>
+                    <input value={turma.siglaCurso} onChange={(e) => setTurma({ ...turma, siglaCurso: e.target.value })} type="text" placeholder="Ex: ARQ" className={inp} />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block font-semibold mb-1">Turma / Período</label>
+                <input value={turma.nome} onChange={(e) => setTurma({ ...turma, nome: e.target.value })} type="text" placeholder="Ex: 4º A ou ENG. CIVIL 4º A" className={inp} />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Qtd Alunos</label>
+                <input value={turma.alunos} onChange={(e) => setTurma({ ...turma, alunos: e.target.value })} type="number" placeholder="Ex: 38" className={inp} />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Link WhatsApp</label>
+                <input value={turma.wa} onChange={(e) => setTurma({ ...turma, wa: e.target.value })} type="text" placeholder="Ex: chat.whatsapp.com/..." className={inp} />
+              </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
@@ -1225,13 +2449,32 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   </select>
                 </div>
               </div>
-              {/* No cadastro o horário é escolhido sozinho; na edição dá para mudar */}
-              {editAulaId && form.formato !== "Assíncrona" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-semibold mb-1">Início</label><input type="time" value={form.inicio} onChange={f("inicio")} className={inp} /></div>
-                  <div><label className="block font-semibold mb-1">Fim</label><input type="time" value={form.fim} onChange={f("fim")} className={inp} /></div>
-                </div>
-              )}
+              {form.formato !== "Assíncrona" && (() => {
+                const aulasNoDia = dados.turmas.filter(
+                  (t) => String(t.grupoId) === form.grupoId && t.dia === form.dia && t.id !== editAulaId && t.formato !== "Assíncrona"
+                );
+                return (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold mb-1">Horário de Início</label>
+                        <input type="time" value={form.inicio} onChange={f("inicio")} className={inp} />
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1">Horário de Fim</label>
+                        <input type="time" value={form.fim} onChange={f("fim")} className={inp} />
+                      </div>
+                    </div>
+                    {aulasNoDia.length > 0 && (
+                      <div className="text-xs bg-[#FFF4E5] border border-orange-200 text-[#9A3412] rounded-[14px] p-2.5">
+                        <b>Já cadastrada(s) neste dia para a turma:</b>{" "}
+                        {aulasNoDia.map((a) => `${a.nome} (${a.horario})`).join(" · ")}.{" "}
+                        <span className="text-gray-600">Escolha um horário sem sobreposição para cadastrar outra matéria no mesmo dia.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block font-semibold mb-1">Nº Alunos</label><input value={form.alunos} onChange={f("alunos")} type="number" placeholder="Ex: 38" className={inp} /></div>
                 <div>
@@ -1247,7 +2490,22 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   <label className="block font-semibold mb-1">Bloquear Sala (Lock)</label>
                   <select value={form.lockSala} onChange={f("lockSala")} className={inp}>
                     <option value="">Nenhuma (Automático)</option>
-                    {dados.salas.map((s) => <option key={s.id} value={s.nome}>{s.nome} ({s.tipo})</option>)}
+                    {dados.salas.map((s) => {
+                      const ocupante = dados.turmas.find(
+                        (t) =>
+                          t.id !== editAulaId &&
+                          !t.consome &&
+                          t.dia === form.dia &&
+                          t.salaGrade === s.nome &&
+                          t.formato !== "Assíncrona" &&
+                          (!form.inicio || !form.fim || !t.inicio || !t.fim || (form.inicio < t.fim && t.inicio < form.fim))
+                      );
+                      return (
+                        <option key={s.id} value={s.nome}>
+                          {s.nome} ({s.tipo}){ocupante ? ` — Ocupado: ${ocupante.turma}` : " — Livre"}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>
@@ -1296,16 +2554,40 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
       )}
 
       {modal === "whatsapp" && waTurma && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="p-6 w-full max-w-md space-y-4 janela">
-            <h3 className="text-lg font-bold text-[#1A2332]"><i className="fa-brands fa-whatsapp text-green-500"></i> Enviar Notificação</h3>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-xs font-mono text-gray-800 space-y-1">
-              <p className="font-bold text-green-800">📲 [AVISO ACADÊMICO - UNISAPIENS]</p>
-              <p>{textoAviso(waTurma)}</p>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="p-6 w-full max-w-lg space-y-4 janela">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-bold text-[#1A2332]">
+                <i className="fa-solid fa-bell text-[#B45309]"></i> Enviar Notificação
+              </h3>
+              {waTexto !== textoAviso(waTurma) && (
+                <button
+                  type="button"
+                  onClick={() => setWaTexto(textoAviso(waTurma))}
+                  className="text-xs font-bold text-[#B45309] hover:underline"
+                >
+                  Restaurar padrão
+                </button>
+              )}
             </div>
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="bg-orange-50/60 border border-orange-200 rounded-xl p-3.5 text-xs space-y-2">
+              <p className="font-bold text-[#9A3412] font-mono">📲 [AVISO ACADÊMICO - UNISAPIENS]</p>
+              <label className="block text-[11px] font-semibold text-gray-700">
+                Edite a mensagem abaixo antes de registrar:
+              </label>
+              <textarea
+                value={waTexto}
+                onChange={(e) => setWaTexto(e.target.value)}
+                rows={4}
+                className="campo text-sm w-full leading-relaxed bg-white"
+                placeholder="Digite o texto do aviso..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end pt-2">
               <button onClick={fechar} className={cancelar}>Cancelar</button>
-              <button onClick={enviarDisparo} disabled={pendente} className="btn bg-green-700 text-white">Registrar aviso</button>
+              <button onClick={() => enviarDisparo(false)} disabled={pendente} className="btn btn-principal">
+                Registrar aviso
+              </button>
             </div>
           </div>
         </div>

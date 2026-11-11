@@ -4,8 +4,10 @@ import { exigirUsuario } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { registrar } from "@/lib/atividade";
-import { chamadaTelegram, enviarMensagem, modoTelegram, telegramConfigurado } from "@/lib/telegram/api";
+import { chamadaTelegram, enviarMensagem, modoTelegram, sincronizarComandosTelegram, telegramConfigurado } from "@/lib/telegram/api";
+import { receberAtualizacao } from "@/lib/telegram/handler";
 import { carregarTurmas, ofertaAtual, paraValidar, paresRodizio } from "@/lib/dados";
+import { sugerirSigla } from "@/lib/cursos-importacao";
 import { norm } from "@/lib/texto";
 import { DIA_BANCO, ehLab, hojeData } from "@/lib/vm";
 import { faixa, horaParaMinutos } from "@/lib/rotulos";
@@ -84,17 +86,19 @@ async function planejar(input: OfertaInput): Promise<{ conflitos: Conflito[]; pl
   const assincrona = formato === "ASSINCRONA";
   const diaBanco = DIA_BANCO[input.dia] ?? null;
 
-  // Edição com horário informado: usa exatamente esse horário (sem procurar outro)
+  // Horário informado pelo usuário (no cadastro ou na edição): usa exatamente esse horário;
+  // se ficar em branco no cadastro, escolhe automaticamente pelo turno da turma.
   const iniDigitado = input.inicio ? horaParaMinutos(input.inicio) : null;
   const fimDigitado = input.fim ? horaParaMinutos(input.fim) : null;
-  if (editada && !assincrona && (iniDigitado == null || fimDigitado == null || fimDigitado <= iniDigitado)) {
+  const informouHorario = Boolean(input.inicio || input.fim);
+  if ((editada || informouHorario) && !assincrona && (iniDigitado == null || fimDigitado == null || fimDigitado <= iniDigitado)) {
     return { conflitos: [], plano: null, erro: "Informe o horário de início e fim (o fim depois do início)." };
   }
-  const duracao = editada && !assincrona ? fimDigitado! - iniDigitado! : disc?.duracaoMinutos ?? 165;
+  const duracao = (editada || informouHorario) && !assincrona ? fimDigitado! - iniDigitado! : disc?.duracaoMinutos ?? 165;
   const baseInicio = grupo.turno === "VESPERTINO" ? 15 * 60 : 19 * 60;
   // Aula curta (extensão = 1h): tenta 19:00, 20:00, 21:00. Aula normal: bloco único.
   const horarios: Array<number | null> =
-    assincrona ? [null] : editada ? [iniDigitado] : duracao <= 90 ? [0, 1, 2].map((k) => baseInicio + k * duracao) : [baseInicio];
+    assincrona ? [null] : editada || informouHorario ? [iniDigitado] : duracao <= 90 ? [0, 1, 2].map((k) => baseInicio + k * duracao) : [baseInicio];
 
   const fixo = disc?.ambienteFixoId ?? ambientes.find((a) => a.codigo === input.lockSala)?.id ?? null;
   const exigeLab = disc?.tipoAmbiente === "LABORATORIO" || input.reqespaco === "Laboratório/Prático";
@@ -117,12 +121,14 @@ async function planejar(input: OfertaInput): Promise<{ conflitos: Conflito[]; pl
       const fim = inicio != null ? inicio + duracao : null;
       const conflitos = validarTurma(
         {
+          grupoId: grupo.id,
           disciplinaId: disc?.id ?? 0,
           disciplinaNome: disc?.nome ?? nome,
           disciplinaCodigo: disc?.codigo ?? "",
           cursoId: grupo.cursoId,
           periodo: grupo.periodo ?? 0,
           letra: grupo.letra,
+          turno: grupo.turno,
           formato,
           professorId: prof?.id ?? null,
           professorNome: prof?.nome,
@@ -248,7 +254,16 @@ export async function cadastrarOferta(input: OfertaInput): Promise<ResultadoOfer
 
 // ---------------------------------------------------------------- dashboard
 
-export async function salvarAlteracao(input: { turmaId: number; salaId: number | null; profId: number | null }) {
+export async function salvarAlteracao(input: {
+  turmaId: number;
+  salaId: number | null;
+  profId: number | null;
+  cancelada?: boolean;
+  motivo?: string;
+  dataIso?: string;
+  mensagemCustomizada?: string;
+  gerarAviso?: boolean;
+}) {
   const eu = await exigirUsuario();
   const turma = await prisma.turma.findUnique({
     where: { id: input.turmaId }, include: { ambiente: true, professor: true, disciplina: true, grupo: true },
@@ -259,26 +274,75 @@ export async function salvarAlteracao(input: { turmaId: number; salaId: number |
   if (input.salaId && !sala) return { ok: false, erro: "Sala não encontrada." };
   if (input.profId && !prof) return { ok: false, erro: "Professor não encontrado." };
 
-  const data = hojeData();
+  const data = input.dataIso && /^\d{4}-\d{2}-\d{2}$/.test(input.dataIso) ? new Date(`${input.dataIso}T00:00:00.000Z`) : hojeData();
+  const dataBr = data.toISOString().slice(0, 10).split("-").reverse().join("/");
   const atuais = await prisma.alteracao.findMany({
-    where: { turmaId: turma.id, data, tipo: { in: ["TROCA_SALA", "TROCA_PROFESSOR"] } }, orderBy: { criadaEm: "asc" },
+    where: { turmaId: turma.id, data, tipo: { in: ["TROCA_SALA", "TROCA_PROFESSOR", "CANCELAMENTO"] } }, orderBy: { criadaEm: "asc" },
   });
   const salaBase = turma.ambiente?.codigo ?? "Sala comum";
   const profBase = turma.professor?.nome ?? "A definir";
   const salaAtual = atuais.filter((a) => a.tipo === "TROCA_SALA").at(-1)?.valorNovo ?? salaBase;
   const profAtual = atuais.filter((a) => a.tipo === "TROCA_PROFESSOR").at(-1)?.valorNovo ?? profBase;
+  const cancelamentoAtual = atuais.filter((a) => a.tipo === "CANCELAMENTO").at(-1);
+  const estavaCancelada = Boolean(cancelamentoAtual);
+  const motivoLimpo = input.motivo?.trim().slice(0, 240) || null;
+
+  const aula = turma.nomeNaPlanilha ?? turma.disciplina.nome;
+  const nomeTurma = turma.grupo?.nome ?? "Turma";
+  const criarAviso = input.gerarAviso !== false;
+
+  // Caso 1: Cancelar a aula no dia
+  if (input.cancelada) {
+    const motivoMudou = (cancelamentoAtual?.motivo ?? null) !== motivoLimpo;
+    if (estavaCancelada && !motivoMudou && !input.mensagemCustomizada?.trim()) return { ok: true };
+    const padrao = `NÃO HAVERÁ AULA de ${aula} na turma ${nomeTurma} em ${dataBr}.${motivoLimpo ? ` Motivo: ${motivoLimpo}.` : ""}`;
+    const mensagem = input.mensagemCustomizada?.trim() || padrao;
+    await prisma.$transaction(async (tx) => {
+      await tx.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo: "CANCELAMENTO" } });
+      await tx.alteracao.create({
+        data: {
+          turmaId: turma.id,
+          data,
+          tipo: "CANCELAMENTO",
+          valorAnterior: `${salaAtual} · ${profAtual}`,
+          valorNovo: "SEM AULA",
+          motivo: motivoLimpo,
+          mensagemGerada: mensagem,
+        },
+      });
+      if (criarAviso && turma.grupoId) {
+        await tx.aviso.create({ data: { grupoId: turma.grupoId, conteudo: mensagem, status: "PENDENTE" } });
+      }
+    });
+    await registrar(eu, "Cancelamento de aula", mensagem);
+    atualizar();
+    revalidatePath("/bot-telegram");
+    revalidatePath("/bot-whatsapp");
+    return { ok: true, resumo: "Aula cancelada" };
+  }
+
+  // Caso 2: Reativar aula que estava cancelada e/ou alterar sala/professor
   const salaNova = sala?.codigo ?? salaBase;
   const profNovo = prof?.nome ?? profBase;
   const salaMudou = salaNova !== salaAtual;
   const profMudou = profNovo !== profAtual;
-  if (!salaMudou && !profMudou) return { ok: true };
+  const reativou = estavaCancelada && input.cancelada === false;
 
-  const aula = turma.nomeNaPlanilha ?? turma.disciplina.nome;
+  if (!salaMudou && !profMudou && !reativou) return { ok: true };
+
   const detalhes: string[] = [];
+  if (reativou) detalhes.push("Aula confirmada/reativada");
   if (salaMudou) detalhes.push(`Sala: ${salaAtual} → ${salaNova}`);
   if (profMudou) detalhes.push(`Professor: ${profAtual} → ${profNovo}`);
-  const mensagem = `Alteração de aula em ${data.toISOString().slice(0, 10).split("-").reverse().join("/")}: ${aula} (${turma.grupo?.nome ?? "Turma"}). ${detalhes.join("; ")}.`;
+  const padrao = reativou && !salaMudou && !profMudou
+    ? `Aula confirmada em ${dataBr}: ${aula} (${nomeTurma}) acontecerá normalmente na sala/lab ${salaNova} com ${profNovo}.`
+    : `Alteração de aula em ${dataBr}: ${aula} (${nomeTurma}). ${detalhes.join("; ")}.`;
+  const mensagem = input.mensagemCustomizada?.trim() || padrao;
+
   await prisma.$transaction(async (tx) => {
+    if (reativou) {
+      await tx.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo: "CANCELAMENTO" } });
+    }
     if (salaMudou) {
       await tx.alteracao.deleteMany({ where: { turmaId: turma.id, data, tipo: "TROCA_SALA" } });
       if (salaNova !== salaBase) await tx.alteracao.create({
@@ -292,19 +356,57 @@ export async function salvarAlteracao(input: { turmaId: number; salaId: number |
       });
     }
     // Cria UM aviso pendente para revisão no painel; nunca envia automaticamente aqui.
-    if (turma.grupoId) await tx.aviso.create({ data: { grupoId: turma.grupoId, conteudo: mensagem, status: "PENDENTE" } });
+    if (criarAviso && turma.grupoId) {
+      await tx.aviso.create({ data: { grupoId: turma.grupoId, conteudo: mensagem, status: "PENDENTE" } });
+    }
   });
-  await registrar(eu, "Troca do dia", mensagem);
+  await registrar(eu, reativou ? "Reativação de aula" : "Troca do dia", mensagem);
   atualizar();
-  return { ok: true };
+  revalidatePath("/bot-telegram");
+  revalidatePath("/bot-whatsapp");
+  return { ok: true, resumo: reativou ? "Aula reativada" : "Alteração salva" };
 }
 
 export async function enviarAviso(input: { turmaId: number; mensagem: string }) {
   await exigirUsuario();
+  const texto = input.mensagem.trim();
+  if (!texto) return { ok: false, erro: "A mensagem do aviso não pode ficar vazia." };
   const turma = await prisma.turma.findUnique({ where: { id: input.turmaId } });
   if (!turma?.grupoId) return { ok: false, erro: "Esta turma não tem grupo de alunos vinculado." };
-  await prisma.aviso.create({ data: { grupoId: turma.grupoId, conteudo: input.mensagem, status: "PENDENTE" } });
+  await prisma.aviso.create({ data: { grupoId: turma.grupoId, conteudo: texto, status: "PENDENTE" } });
   atualizar();
+  revalidatePath("/bot-telegram");
+  revalidatePath("/bot-whatsapp");
+  return { ok: true };
+}
+
+/** Edita o texto de um aviso antes do envio (e atualiza lotes ainda não concluídos). */
+export async function editarAviso(input: { id: number; mensagem: string }) {
+  const eu = await exigirUsuario();
+  const texto = input.mensagem.trim();
+  if (!texto) return { ok: false, erro: "A mensagem do aviso não pode ficar vazia." };
+  const existente = await prisma.aviso.findUnique({ where: { id: input.id }, include: { grupo: true } });
+  if (!existente) return { ok: false, erro: "Aviso não encontrado." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.aviso.update({
+      where: { id: input.id },
+      data: { conteudo: texto },
+    });
+    await tx.whatsappLote.updateMany({
+      where: { avisoId: input.id, status: { not: "CONCLUIDO" } },
+      data: { conteudo: `SAGA • Aviso acadêmico\nTurma: ${existente.grupo.nome}\n${texto}`.slice(0, 3900) },
+    }).catch(() => {});
+    await tx.telegramLote.updateMany({
+      where: { avisoId: input.id, status: { not: "CONCLUIDO" } },
+      data: { conteudo: `SAGA • Aviso acadêmico\nTurma: ${existente.grupo.nome}\n${texto}`.slice(0, 3900) },
+    }).catch(() => {});
+  });
+
+  await registrar(eu, "Edição de aviso", `Editou o aviso de ${existente.grupo.nome}`);
+  atualizar();
+  revalidatePath("/bot-telegram");
+  revalidatePath("/bot-whatsapp");
   return { ok: true };
 }
 
@@ -327,13 +429,22 @@ export async function marcarAviso(id: number, enviado: boolean) {
 }
 
 /** Disparo integrado pelo Telegram direto do Histórico de Avisos: valida chave, envia aos inscritos e atualiza status. */
-export async function enviarAvisoTelegram(id: number) {
+export async function enviarAvisoTelegram(id: number, mensagemEditada?: string) {
   const eu = await exigirUsuario();
   if (!telegramConfigurado()) {
     return { ok: false, erro: "Chave do Telegram não configurada." };
   }
-  const aviso = await prisma.aviso.findUnique({ where: { id }, include: { grupo: true } });
+  let aviso = await prisma.aviso.findUnique({ where: { id }, include: { grupo: true } });
   if (!aviso) return { ok: false, erro: "Aviso não encontrado." };
+
+  const novoTexto = mensagemEditada?.trim();
+  if (novoTexto && novoTexto !== aviso.conteudo) {
+    aviso = await prisma.aviso.update({
+      where: { id },
+      data: { conteudo: novoTexto },
+      include: { grupo: true },
+    });
+  }
 
   try {
     // Valida a chave do bot junto à API oficial do Telegram
@@ -413,6 +524,45 @@ export async function enviarAvisoTelegram(id: number) {
   };
 }
 
+/** Sincroniza comandos e interações do bot Telegram diretamente pela aba Status do Bot. */
+export async function sincronizarBotPainel() {
+  await exigirUsuario();
+  if (!telegramConfigurado()) return { ok: false, erro: "Token do Telegram não configurado." };
+  try {
+    const me = await chamadaTelegram<{ username?: string; first_name?: string }>("getMe", {});
+    const botUser = me.username ? `@${me.username}` : (me.first_name ?? "Bot");
+    await sincronizarComandosTelegram();
+    const updates = await chamadaTelegram<Array<{ update_id: number }>>("getUpdates", { limit: 25, timeout: 0 }).catch(() => []);
+    for (const u of updates) {
+      await receberAtualizacao(u);
+    }
+    atualizar();
+    revalidatePath("/bot-telegram");
+    return {
+      ok: true,
+      resumo: `Conectado a ${botUser}! Comandos sincronizados${updates.length ? ` e ${updates.length} interação(ões) recebida(s)` : ""}.`,
+    };
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : "Erro ao sincronizar o bot." };
+  }
+}
+
+/** Atualiza a turma vinculada a um assinante do Telegram direto da aba Status do Bot. */
+export async function definirTurmaAssinantePainel(assinanteId: number, grupoId: number | null) {
+  await exigirUsuario();
+  try {
+    await prisma.telegramAssinante.update({
+      where: { id: assinanteId },
+      data: { grupoId },
+    });
+    atualizar();
+    revalidatePath("/bot-telegram");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível atualizar a turma do aluno." };
+  }
+}
+
 // ---------------------------------------------------------------- cadastros base
 
 /** Cadastra (sem id) ou edita (com id) uma sala/laboratório. */
@@ -465,24 +615,94 @@ const PALAVRAS_CURSO: Array<[string, string]> = [
   ["BIG DATA", "BIG DATA E I.A."], ["JOGOS", "JOGOS DIGITAIS"], ["SISTEMAS", "SIST. DE INFORM."], ["INFORM", "SIST. DE INFORM."],
 ];
 
-/** "Nova Turma" / editar: o nome é livre (ex.: "04º B ENG. CIVIL"); o sistema descobre curso, período e turma. */
-export async function criarGrupo(input: { id?: number; nome: string; alunos: number | null; wa: string }) {
+/** Gera sigla única a partir do nome ou da sigla informada. */
+function siglaUnica(nome: string, siglaInformada: string | undefined, usadas: Set<string>): string {
+  const base = (siglaInformada?.trim().toUpperCase() || sugerirSigla(nome)).slice(0, 10);
+  if (!usadas.has(base)) return base;
+  let i = 2;
+  while (usadas.has(`${base}${i}`)) i++;
+  return `${base}${i}`.slice(0, 12);
+}
+
+/** Cadastrar ou editar um Curso. */
+export async function criarCurso(input: { id?: number; nome: string; sigla?: string }) {
   const eu = await exigirUsuario();
-  const nome = input.nome.trim();
-  const n = norm(nome);
-  if (!n) return { ok: false, erro: "Informe a turma." };
-  const cursos = await prisma.curso.findMany();
-  const achado =
-    cursos.find((c) => n.includes(norm(c.nome))) ??
-    cursos.find((c) => c.nome === PALAVRAS_CURSO.find(([k]) => n.includes(k))?.[1]);
-  if (!achado) {
-    return { ok: false, erro: "Não reconheci o curso. Escreva no formato: 04º B ENG. CIVIL (ou ENG. COMPUTAÇÃO, ENG. SOFTWARE, SIST. DE INFORM., ...)." };
+  const nome = input.nome.trim().replace(/\s+/g, " ").toUpperCase();
+  if (!nome) return { ok: false, erro: "Informe o nome do curso." };
+  const existentes = await prisma.curso.findMany();
+  const usadas = new Set(existentes.filter((c) => c.id !== input.id).map((c) => c.sigla.toUpperCase()));
+  const sigla = siglaUnica(nome, input.sigla, usadas);
+  try {
+    if (input.id) await prisma.curso.update({ where: { id: input.id }, data: { nome, sigla } });
+    else await prisma.curso.create({ data: { nome, sigla } });
+  } catch {
+    return { ok: false, erro: "Já existe um curso com esse nome ou sigla." };
   }
-  const periodo = /\d+/.exec(n)?.[0];
-  const letra = n.split(" ").find((t) => /^[A-D]$/.test(t)) ?? "A";
+  await registrar(eu, input.id ? "Edição de cadastro" : "Novo cadastro", `Curso ${nome} (${sigla})`);
+  atualizar();
+  return { ok: true };
+}
+
+/** "Nova Turma" / editar: aceita curso selecionado (`cursoId`), novo curso (`novoCurso`) ou descoberta pelo nome. */
+export async function criarGrupo(input: {
+  id?: number;
+  nome: string;
+  cursoId?: number | null;
+  novoCurso?: string;
+  siglaCurso?: string;
+  alunos: number | null;
+  wa: string;
+}) {
+  const eu = await exigirUsuario();
+  const nomeBruto = input.nome.trim();
+  const n = norm(nomeBruto);
+  if (!n) return { ok: false, erro: "Informe a turma ou período." };
+
+  const cursos = await prisma.curso.findMany();
+  let cursoEscolhido = input.cursoId ? cursos.find((c) => c.id === input.cursoId) ?? null : null;
+
+  if (!cursoEscolhido && input.novoCurso?.trim()) {
+    const nomeCursoNovo = input.novoCurso.trim().replace(/\s+/g, " ").toUpperCase();
+    cursoEscolhido = cursos.find((c) => norm(c.nome) === norm(nomeCursoNovo)) ?? null;
+    if (!cursoEscolhido) {
+      const usadas = new Set(cursos.map((c) => c.sigla.toUpperCase()));
+      const sigla = siglaUnica(nomeCursoNovo, input.siglaCurso, usadas);
+      try {
+        cursoEscolhido = await prisma.curso.create({ data: { nome: nomeCursoNovo, sigla } });
+        await registrar(eu, "Novo cadastro", `Curso ${nomeCursoNovo} (${sigla})`);
+      } catch {
+        return { ok: false, erro: "Não foi possível criar o novo curso (nome ou sigla já existe)." };
+      }
+    }
+  }
+
+  if (!cursoEscolhido) {
+    cursoEscolhido =
+      cursos.find((c) => n.includes(norm(c.nome))) ??
+      cursos.find((c) => c.nome === PALAVRAS_CURSO.find(([k]) => n.includes(k))?.[1]) ??
+      null;
+  }
+
+  if (!cursoEscolhido) {
+    return { ok: false, erro: "Selecione um curso ou informe o nome do novo curso." };
+  }
+
+  // Se o usuário digitou apenas o período/turma (ex.: "1º A" ou "4º Período") e selecionou o curso,
+  // compomos o nome completo caso não contenha o nome do curso.
+  const jaTemCursoNoNome = n.includes(norm(cursoEscolhido.nome)) || PALAVRAS_CURSO.some(([k]) => n.includes(k));
+  const nomeFinal = (jaTemCursoNoNome ? nomeBruto : `${cursoEscolhido.nome} ${nomeBruto}`).replace(/\s+/g, " ").toUpperCase();
+  const nFinal = norm(nomeFinal);
+
+  const periodo = /\d+/.exec(nFinal)?.[0];
+  const letra = nFinal.split(" ").find((t) => /^[A-D]$/.test(t)) ?? "A";
   const data = {
-    nome: nome.toUpperCase(), cursoId: achado.id, periodo: periodo ? Number(periodo) : null, letra,
-    turno: n.includes("VESP") ? "VESPERTINO" : "NOTURNO", qtdAlunos: input.alunos, linkWhatsapp: input.wa.trim() || null,
+    nome: nomeFinal,
+    cursoId: cursoEscolhido.id,
+    periodo: periodo ? Number(periodo) : null,
+    letra,
+    turno: nFinal.includes("VESP") ? "VESPERTINO" : "NOTURNO",
+    qtdAlunos: input.alunos,
+    linkWhatsapp: input.wa.trim() || null,
   };
   try {
     if (input.id) await prisma.grupoAlunos.update({ where: { id: input.id }, data });
@@ -497,7 +717,7 @@ export async function criarGrupo(input: { id?: number; nome: string; alunos: num
 
 // ---------------------------------------------------------------- excluir
 
-export type TipoCadastro = "sala" | "professor" | "turma" | "aula";
+export type TipoCadastro = "sala" | "professor" | "turma" | "curso" | "aula";
 
 /** Diz o que vai acontecer ao excluir, sem apagar nada. `pode = false` bloqueia. */
 export async function previaExclusao(tipo: TipoCadastro, id: number): Promise<{ pode: boolean; mensagem: string }> {
@@ -512,6 +732,12 @@ export async function previaExclusao(tipo: TipoCadastro, id: number): Promise<{ 
     const p = await prisma.professor.findUnique({ where: { id }, include: { _count: { select: { turmas: true } } } });
     if (!p) return { pode: false, mensagem: "Professor não encontrado." };
     return { pode: true, mensagem: `Excluir ${p.nome}?` + (p._count.turmas ? `\n\n${p._count.turmas} aula(s) dele ficam com professor "A definir".` : "") };
+  }
+  if (tipo === "curso") {
+    const c = await prisma.curso.findUnique({ where: { id }, include: { _count: { select: { grupos: true, matriz: true } } } });
+    if (!c) return { pode: false, mensagem: "Curso não encontrado." };
+    if (c._count.grupos) return { pode: false, mensagem: `O curso ${c.nome} possui ${c._count.grupos} turma(s) vinculada(s). Exclua ou altere as turmas antes.` };
+    return { pode: true, mensagem: `Excluir o curso ${c.nome} (${c.sigla})?` + (c._count.matriz ? `\n\n${c._count.matriz} vínculo(s) da matriz curricular deste curso também serão removidos.` : "") };
   }
   if (tipo === "turma") {
     const g = await prisma.grupoAlunos.findUnique({ where: { id }, include: { _count: { select: { turmas: true, avisos: true } } } });
@@ -540,6 +766,10 @@ export async function excluirCadastro(tipo: TipoCadastro, id: number): Promise<{
   if (tipo === "professor") {
     const professor = await prisma.professor.delete({ where: { id } }); // aulas ficam "A definir"
     await registrar(eu, "Exclusão", `Professor ${professor.nome}`);
+  }
+  if (tipo === "curso") {
+    const [, curso] = await prisma.$transaction([prisma.matrizItem.deleteMany({ where: { cursoId: id } }), prisma.curso.delete({ where: { id } })]);
+    await registrar(eu, "Exclusão", `Curso ${curso.nome}`);
   }
   if (tipo === "turma") {
     const [, grupo] = await prisma.$transaction([prisma.aviso.deleteMany({ where: { grupoId: id } }), prisma.grupoAlunos.delete({ where: { id } })]);
