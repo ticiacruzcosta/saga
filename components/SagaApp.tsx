@@ -463,7 +463,10 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
   const navBtn = (id: string, icone: string, nome: string, alerta = 0) => (
     <li>
       <button
-        onClick={() => setTab(id)}
+        onClick={() => {
+          setTab(id);
+          if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+        }}
         title={nome}
         aria-current={tab === id ? "page" : undefined}
         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-left text-sm transition-colors ${
@@ -497,7 +500,19 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     >
       <style>{`button:not(:disabled){cursor:pointer} input::placeholder{color:#6b7280} @page{size:landscape;margin:10mm}`}</style>
 
-      <aside className={`print:hidden ${sidebarOpen ? "w-64" : "w-[4.5rem]"} bg-[#1A2332] text-white flex flex-col justify-between shrink-0 transition-all duration-300 relative z-20 overflow-y-auto`}>
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+          className="print:hidden fixed inset-0 bg-black/45 z-20 md:hidden"
+        />
+      )}
+
+      <aside
+        className={`print:hidden ${
+          sidebarOpen ? "fixed inset-y-0 left-0 z-30 w-64 flex md:static" : "hidden md:flex md:w-[4.5rem]"
+        } bg-[#1A2332] text-white flex-col justify-between shrink-0 transition-all duration-300 relative overflow-y-auto`}
+      >
         <div>
           <div className="px-4 pt-5 pb-4 mx-2 border-b border-white/10 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
@@ -624,8 +639,8 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                   </div>
                 )}
               </div>
-              <div className="p-4 flex gap-4 items-center justify-between cartao">
-                <div className="relative flex-1 max-w-md">
+              <div className="p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between cartao">
+                <div className="relative flex-1 sm:max-w-md">
                   <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
                   <input
                     type="text" value={dashBusca} onChange={(e) => setDashBusca(e.target.value)} data-busca
@@ -633,17 +648,17 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                     className="campo campo-sm w-full pl-9"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => andarDia(-1)} title="Dia anterior" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200]">
+                <div className="flex items-center justify-center sm:justify-end gap-2">
+                  <button onClick={() => andarDia(-1)} title="Dia anterior" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200] shrink-0">
                     <i className="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-initial">
                     {/* clicar ou segurar (toque longo / botão direito) abre o calendário */}
                     <button
                       onClick={() => setCalendarioAberto((v) => !v)}
                       onContextMenu={(e) => { e.preventDefault(); setCalendarioAberto(true); }}
                       title="Abrir calendário"
-                      className="text-center min-w-[10rem] px-5 py-1.5 rounded-full bg-[#FFF4E5] hover:brightness-95 select-none"
+                      className="w-full text-center min-w-[9rem] sm:min-w-[10rem] px-4 sm:px-5 py-1.5 rounded-full bg-[#FFF4E5] hover:brightness-95 select-none"
                     >
                       <div className="text-sm font-bold text-[#1A2332]">
                         <i className="fa-regular fa-calendar text-[#B45309] mr-1"></i>{nomeDiaVer}, {diaMes(dataVer)}
@@ -656,16 +671,52 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                       <CalendarioDia hoje={dados.dataHoje} selecionada={dataVer} ocupacao={ocupacao} onEscolher={irPara} onFechar={() => setCalendarioAberto(false)} />
                     )}
                   </div>
-                  <button onClick={() => andarDia(1)} title="Próximo dia" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200]">
+                  <button onClick={() => andarDia(1)} title="Próximo dia" className="w-10 h-10 rounded-full border border-gray-200 bg-white text-[#1A2332] hover:border-[#F39200] shrink-0">
                     <i className="fa-solid fa-chevron-right"></i>
                   </button>
                   {dataEscolhida && (
-                    <button onClick={() => setDataEscolhida(null)} className="text-xs font-bold text-[#B45309] hover:underline ml-1">Voltar para hoje</button>
+                    <button onClick={() => setDataEscolhida(null)} className="text-xs font-bold text-[#B45309] hover:underline ml-1 shrink-0">Hoje</button>
                   )}
                 </div>
               </div>
 
-              <div className="overflow-x-auto cartao">
+              {/* VISÃO CELULAR DO DASHBOARD */}
+              <div className="md:hidden space-y-3">
+                {dashboard.length === 0 && (
+                  <div className="cartao p-6 text-center text-gray-400">
+                    <b className="block text-base text-[#1A2332]">Nenhuma aula neste dia</b>
+                    <span className="text-xs">Use as setas para ver outro dia.</span>
+                  </div>
+                )}
+                {dashboard.map((d) => (
+                  <div key={d.id} className="cartao p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-sm text-gray-900">{d.turma}</div>
+                        <div className="text-xs font-semibold text-gray-700 mt-0.5">{d.nome}</div>
+                      </div>
+                      <span className="text-[11px] bg-gray-100 px-2 py-0.5 rounded font-semibold shrink-0">{d.formato}</span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      <span className="font-semibold">{d.prof}</span> · {d.horario}
+                    </div>
+                    {d.tambemAtende.length > 0 && <div className="text-[11px] text-blue-600">Também atende: {d.tambemAtende.join(", ")}</div>}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                      <div>
+                        <span className="font-bold text-sm text-[#B45309]">{d.sala}</span>
+                        <span className="text-xs text-gray-500 ml-1.5">({d.predio})</span>
+                        {d.alteradaHoje && <span className="ml-2 text-[10px] font-semibold text-blue-600">alterada hoje</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {ehHoje && <button onClick={() => abrirEdicao(d)} className="btn btn-icone"><i className="fa-solid fa-pen"></i></button>}
+                        <button onClick={() => abrirWhatsApp(d)} className="btn btn-principal btn-sm"><i className="fa-brands fa-whatsapp"></i> Aviso</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto cartao">
                 <table className="w-full text-left border-collapse min-w-[760px]">
                   <thead>
                     <tr className="tabela-cab">
@@ -803,7 +854,52 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
                 </div>
               </div>
 
-              <div className="overflow-x-auto cartao">
+              {/* VISÃO CELULAR DA GRADE */}
+              <div className="md:hidden space-y-3">
+                {grade.length === 0 && (
+                  <div className="cartao p-6 text-center text-gray-400 text-sm">Nenhuma turma com esses filtros.</div>
+                )}
+                {grade.map((d) => {
+                  const erro = d.conflitos.some((c) => c.gravidade === "ERRO");
+                  return (
+                    <div key={d.id} className="cartao p-4 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-extrabold text-[#B45309]">{d.dia || "EAD"}</span>
+                          {d.horario !== "—" && <span className="text-xs text-gray-500 ml-1.5">· {d.horario}</span>}
+                          <div className="font-bold text-sm text-gray-900 mt-0.5">{d.turma}</div>
+                        </div>
+                        {d.conflitos.length === 0 ? <Selo tipo="ok" /> : <Selo tipo={erro ? "erro" : "confirmar"} />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-800">{d.nome}</div>
+                        <div className="text-xs text-gray-500">{d.prof}</div>
+                        {d.consome && <div className="text-[11px] text-blue-600">assiste turma de outro curso</div>}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100 text-xs">
+                        <div>
+                          <span className="font-bold text-[#B45309]">{d.sala}</span>
+                          <span className="text-gray-500 ml-1">({d.formato})</span>
+                        </div>
+                        {d.conflitos.length > 0 && !d.consome && d.dia && (
+                          <button onClick={() => abrirRealocar(d.id)} className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1">
+                            <i className="fa-solid fa-right-left"></i> Realocar
+                          </button>
+                        )}
+                      </div>
+                      {d.conflitos.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          {d.conflitos.map((c, i) => (
+                            <div key={i} className="text-[11px] text-gray-600 bg-gray-50 rounded-lg px-2.5 py-1.5">{c.mensagem}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto cartao">
                 <table className="w-full text-left border-collapse text-sm min-w-[760px]">
                   <thead>
                     <tr className="tabela-cab">

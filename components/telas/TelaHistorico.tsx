@@ -1,6 +1,7 @@
 "use client";
 
 // Histórico de Avisos: mensagens geradas, status geral e integração direta com o Status Telegram.
+// Responsivo: cartões empilhados no celular (md:hidden) e tabela completa no computador (hidden md:block).
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -67,8 +68,8 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-xs">
-        <div className="text-sm text-gray-600">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-xs">
+        <div className="text-xs sm:text-sm text-gray-600 leading-relaxed">
           {pendentes > 0 ? (
             <>
               <b className="text-red-700">{pendentes} aviso(s) pendente(s).</b> Você pode disparar direto pelo{" "}
@@ -80,7 +81,7 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-extrabold ${
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${
               semFalhasTelegram && chaveAtiva
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : "bg-red-50 text-red-700 border border-red-200"
@@ -88,20 +89,102 @@ export default function TelaHistorico({ avisos, admin }: { avisos: AvisoVM[]; ad
           >
             <span
               aria-hidden="true"
-              className={`h-2 w-2 rounded-full ${semFalhasTelegram && chaveAtiva ? "bg-emerald-500" : "bg-red-600"}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${semFalhasTelegram && chaveAtiva ? "bg-emerald-500" : "bg-red-600"}`}
             ></span>
-            Status Telegram: {semFalhasTelegram && chaveAtiva ? "Integrado (Chave e envio OK)" : "Atenção no envio/chave"}
+            <span>Status Telegram: {semFalhasTelegram && chaveAtiva ? "Integrado (OK)" : "Atenção"}</span>
           </span>
           {admin && (
-            <Link href="/bot-telegram" className="btn btn-sm bg-sky-600 text-white hover:bg-sky-700">
+            <Link href="/bot-telegram" className="btn btn-sm bg-sky-600 text-white hover:bg-sky-700 w-full sm:w-auto">
               <i className="fa-brands fa-telegram"></i> Painel Telegram
             </Link>
           )}
         </div>
       </div>
 
-      <div className="cartao overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm min-w-[860px]">
+      {/* VISÃO CELULAR: Cartões empilhados sem rolagem horizontal */}
+      <div className="md:hidden space-y-3">
+        {avisos.length === 0 && (
+          <div className="cartao p-6 text-center text-gray-400 text-sm">Nenhum aviso ainda.</div>
+        )}
+        {avisos.map((a) => {
+          const [fundo, ponto] = SELO[a.status] ?? SELO.Pendente;
+          const [fundoTg, pontoTg, rotuloTg] = SELO_TELEGRAM[a.statusTelegram] ?? SELO_TELEGRAM.Integrado;
+          return (
+            <div key={a.id} className="cartao p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-bold text-sm text-gray-900 leading-snug">{a.turma}</div>
+                <span className="text-[11px] text-gray-500 whitespace-nowrap shrink-0">{a.quando}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`${fundo} inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-extrabold`}>
+                  <span aria-hidden="true" className={`w-2 h-2 rounded-full ${ponto}`}></span>
+                  {a.status}
+                </span>
+                <span
+                  title={a.detalheTelegram}
+                  className={`${fundoTg} inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-extrabold`}
+                >
+                  <span aria-hidden="true" className={`w-2 h-2 rounded-full ${pontoTg}`}></span>
+                  Telegram: {rotuloTg}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-700 leading-relaxed break-words bg-gray-50 rounded-xl p-3">
+                {a.mensagem}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {a.enfileirado ? (
+                  admin ? (
+                    <Link href="/bot-whatsapp" className="btn btn-sm btn-secundario w-full">
+                      Ver no bot
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-gray-500">Fila gerenciada pelo administrador</span>
+                  )
+                ) : a.status === "Pendente" || a.status === "Falhou" ? (
+                  <>
+                    <button
+                      onClick={() => enviarTelegram(a)}
+                      disabled={pendente}
+                      title="Validar chave e disparar pelo Telegram"
+                      className="btn btn-sm bg-sky-600 text-white hover:bg-sky-700 flex-1"
+                    >
+                      <i className="fa-brands fa-telegram"></i> Telegram
+                    </button>
+                    <button onClick={() => enviar(a)} disabled={pendente} className="btn btn-sm bg-green-700 text-white flex-1">
+                      <i className="fa-brands fa-whatsapp"></i> WhatsApp
+                    </button>
+                    <button
+                      onClick={() => marcar(a, true)}
+                      disabled={pendente}
+                      title="Já enviei por outro meio"
+                      aria-label="Marcar como enviado"
+                      className="btn btn-icone shrink-0"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => marcar(a, false)}
+                    disabled={pendente}
+                    title="Voltar para pendente"
+                    className="btn btn-sm btn-secundario w-full"
+                  >
+                    <i className="fa-solid fa-rotate-left"></i> Desfazer
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* VISÃO DESKTOP: Tabela completa */}
+      <div className="hidden md:block cartao overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm min-w-[780px]">
           <thead className="tabela-cab">
             <tr>
               <th className="p-3 pl-5">Data/Hora</th>

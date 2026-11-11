@@ -27,13 +27,13 @@ export default async function TelegramPainel({
       include: { grupo: true, disciplina: true }, orderBy: { id: "asc" }, take: 500 }),
   ]);
   const lotesPorAviso = new Map(lotes.map(l => [l.avisoId, l]));
-  return <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-10">
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+  return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900 sm:px-10 sm:py-8">
+    <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div><Link href="/" className="text-sm text-sky-700 hover:underline">← Voltar ao SAGA</Link>
-          <h1 className="mt-2 text-3xl font-extrabold">Integração Telegram — SAGA</h1>
-          <p className="text-sm text-slate-600">Aproveita as turmas e os avisos existentes. O WhatsApp fica disponível separadamente, sem disparos automáticos.</p></div>
-        <span className={`rounded-full px-4 py-2 text-sm font-bold ${modo === "REAL" ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>Lotes: {modo === "REAL" ? "ENVIO REAL" : "SIMULAÇÃO"}</span>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold">Integração Telegram — SAGA</h1>
+          <p className="text-xs sm:text-sm text-slate-600">Aproveita as turmas e os avisos existentes. O WhatsApp fica disponível separadamente, sem disparos automáticos.</p></div>
+        <span className={`self-start rounded-full px-4 py-1.5 text-xs sm:text-sm font-bold ${modo === "REAL" ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>Lotes: {modo === "REAL" ? "ENVIO REAL" : "SIMULAÇÃO"}</span>
       </header>
       {params.erro && (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
