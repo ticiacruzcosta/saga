@@ -208,9 +208,3 @@ janelas, tabelas) ficam definidas em `app/globals.css`, que também tem o tema e
 
 
 ---
-
-## Integração WhatsApp — MVP (2026)
-
-O pacote inclui a integração **no próprio SAGA** (não é um segundo site), em modo de simulação por padrão. Acesse **Status do Bot → Abrir administração do bot** como `ADMIN`, ou entre em `/bot-whatsapp`.
-
-Leia **[docs/WHATSAPP_INTEGRACAO.md](docs/WHATSAPP_INTEGRACAO.md)** para instalar com um banco Neon de desenvolvimento, configurar webhook/Cloud API, testar, consultar a imagem de horários e conhecer as limitações. **Nunca use `prisma db push` apontando para produção sem revisão, backup e migração adequada.**
