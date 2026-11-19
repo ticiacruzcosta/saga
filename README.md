@@ -1,17 +1,17 @@
 # SAGA — Sistema de Avisos e Gestão Acadêmica
 
-> **Faculdade Unisapiens · Porto Velho/RO**  
+> **CENTRO UNIVERSITÁRIO UNISAPIENS · Porto Velho/RO**  
 > **Curso:** Engenharia da Computação · **Disciplina:** Projeto de Extensão IV  
 > **Professor Orientador:** Prof. Allan Kardec Gurgel do Amaral  
 > **Cliente Atendido:** Coordenação Acadêmica do Núcleo de Engenharia e Tecnologia (ENGETEC)
 
-🌐 ** Produção (Vercel):** [https://saga-liard.vercel.app](https://saga-liard.vercel.app)
+🌐 **Produção (Vercel):** [https://saga-liard.vercel.app](https://saga-liard.vercel.app)
 
 ---
 
 ## 📌 Sobre o Projeto
 
-O **SAGA (Sistema de Avisos e Gestão Acadêmica)** é uma plataforma web *full-stack* responsiva desenvolvida para substituir o controle manual de horários e salas em planilhas eletrônicas na **Faculdade Unisapiens**.
+O **SAGA (Sistema de Avisos e Gestão Acadêmica)** é uma plataforma web *full-stack* responsiva desenvolvida para substituir o controle manual de horários e salas em planilhas eletrônicas no **CENTRO UNIVERSITÁRIO UNISAPIENS**.
 
 A solução automatiza a consolidação da matriz semestral de oferta de disciplinas, previne choques de horários docentes, evita a superlotação de salas e laboratórios, gerencia rodízios práticos (`1x1` e `2x2`), permite travar ambientes específicos (*Lock*) e integra o disparo de avisos em tempo real aos estudantes via **Bot do Telegram** e **WhatsApp**.
 

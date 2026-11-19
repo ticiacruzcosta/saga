@@ -2,7 +2,7 @@
   "name": "saga",
   "version": "1.0.0",
   "private": true,
-  "description": "SAGA - Sistema de Avisos e Gestão Acadêmica (Faculdade Unisapiens)",
+  "description": "SAGA - Sistema de Avisos e Gestão Acadêmica (CENTRO UNIVERSITÁRIO UNISAPIENS)",
   "scripts": {
     "dev": "prisma generate && next dev",
     "build": "prisma generate && prisma db push && next build",

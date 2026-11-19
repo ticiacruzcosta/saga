@@ -257,7 +257,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
     return () => clearInterval(timer);
   }, [router]);
 
-  const titulo = tab === "dashboard" ? "Horário do dia" : TITULOS[tab] ?? "Faculdade Unisapiens";
+  const titulo = tab === "dashboard" ? "Horário do dia" : TITULOS[tab] ?? "CENTRO UNIVERSITÁRIO UNISAPIENS";
 
   // ---------------------------------------------------------------- dados derivados
   const dashboard = useMemo(() => {
@@ -700,7 +700,7 @@ export default function SagaApp({ dados, usuario }: { dados: DadosSaga; usuario:
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-10 h-10 rounded-[12px] bg-white text-[#B45309] flex items-center justify-center font-black text-base shrink-0">US</div>
               <div className={`${sidebarOpen ? "" : "hidden"} flex flex-col leading-tight min-w-0`}>
-                <span className="text-[10px] font-extrabold tracking-[0.12em] text-[#F7A428]">FACULDADE</span>
+                <span className="text-[9px] font-extrabold tracking-[0.08em] text-[#F7A428]">CENTRO UNIVERSITÁRIO</span>
                 <span className="text-[16px] font-black tracking-wide">UNISAPIENS</span>
                 <span className="text-[9px] tracking-[0.25em] text-slate-400">SAGA</span>
               </div>

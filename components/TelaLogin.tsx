@@ -72,7 +72,7 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
           <div className="absolute left-36 -bottom-20 w-40 h-56 rounded-full rotate-[-35deg] bg-gradient-to-br from-[#FDBA74] to-[#F39200]" />
           <div className="absolute left-8 top-1/2 -translate-y-1/2 text-white drop-shadow">
             <div className="bg-white text-[#F39200] w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-md">US</div>
-            <p className="mt-3 text-xs font-bold tracking-widest">FACULDADE</p>
+            <p className="mt-3 text-xs font-bold tracking-widest">CENTRO UNIVERSITÁRIO</p>
             <p className="text-2xl font-black tracking-wide leading-none">UNISAPIENS</p>
             <p className="mt-1 text-[11px] font-mono tracking-widest opacity-90">SAGA</p>
           </div>

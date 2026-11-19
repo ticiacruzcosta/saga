@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SAGA - Sistema de Avisos e Gestão Acadêmica | Faculdade Unisapiens",
+  title: "SAGA - Sistema de Avisos e Gestão Acadêmica | CENTRO UNIVERSITÁRIO UNISAPIENS",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

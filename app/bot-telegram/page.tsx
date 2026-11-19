@@ -63,7 +63,7 @@ export default async function TelegramPainel({
               <h1 className="text-xl md:text-2xl font-black text-[#1A2332] leading-tight">
                 Status e Fila do Bot
               </h1>
-              <p className="text-xs text-gray-500">Faculdade Unisapiens · Integração Telegram (@saga_avisos_academicos_bot)</p>
+              <p className="text-xs text-gray-500">CENTRO UNIVERSITÁRIO UNISAPIENS · Integração Telegram (@saga_avisos_academicos_bot)</p>
             </div>
           </div>
 
