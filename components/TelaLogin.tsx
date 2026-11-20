@@ -6,13 +6,13 @@
 import { useState, useTransition } from "react";
 import { criarPrimeiroAcesso, entrar, solicitarAcesso } from "@/app/auth";
 
-const DEGRADE = "bg-gradient-to-br from-[#6366F1] to-[#0F172A]";
+const DEGRADE = "bg-gradient-to-br from-[#F39200] to-[#1A2332]";
 
 function Campo({ icone, ...props }: { icone: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex items-center gap-3 bg-[#F1F5F9] rounded-[14px] px-4 py-2.5 border-2 border-transparent focus-within:bg-white focus-within:border-[#6366F1] focus-within:ring-4 focus-within:ring-[#6366F1]/18 transition">
-      <i className={`fa-solid ${icone} text-[#4F46E5] w-4 text-center`}></i>
-      <input {...props} required className="bg-transparent outline-none text-sm w-full text-[#0F172A] placeholder:text-gray-400" />
+    <label className="flex items-center gap-3 bg-gray-100 rounded-[14px] px-4 py-2.5 focus-within:ring-2 focus-within:ring-[#F39200]">
+      <i className={`fa-solid ${icone} text-gray-500 w-4 text-center`}></i>
+      <input {...props} required className="bg-transparent outline-none text-sm w-full placeholder:text-gray-400" />
     </label>
   );
 }
@@ -61,18 +61,18 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(110deg,#0F172A_0%,#0F172A_45%,#312E81_78%,#6366F1_100%)] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden grid md:grid-cols-2">
-        {/* lado decorativo: pílulas na diagonal no mesmo tema SaaS Indigo do sistema */}
-        <div className="relative hidden md:block min-h-[420px] overflow-hidden bg-[#0F172A]">
+    <main className="min-h-screen bg-gradient-to-br from-[#F39200] via-[#C2410C] to-[#1A2332] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden grid md:grid-cols-2">
+        {/* lado decorativo: pílulas na diagonal, como na referência */}
+        <div className="relative hidden md:block min-h-[420px] overflow-hidden">
           <div className={`absolute -left-24 -top-20 w-72 h-[30rem] rounded-full rotate-[-35deg] ${DEGRADE}`} />
-          <div className="absolute -left-10 -top-24 w-72 h-[30rem] rounded-full rotate-[-35deg] border-[14px] border-indigo-200/35" />
+          <div className="absolute -left-10 -top-24 w-72 h-[30rem] rounded-full rotate-[-35deg] border-[14px] border-orange-100/80" />
           <div className={`absolute left-40 -top-16 w-28 h-44 rounded-full rotate-[-35deg] ${DEGRADE} opacity-90`} />
           <div className={`absolute -left-10 bottom-0 w-20 h-36 rounded-full rotate-[-35deg] ${DEGRADE} opacity-90`} />
-          <div className="absolute left-36 -bottom-20 w-40 h-56 rounded-full rotate-[-35deg] bg-gradient-to-br from-[#A5B4FC] to-[#6366F1]" />
+          <div className="absolute left-36 -bottom-20 w-40 h-56 rounded-full rotate-[-35deg] bg-gradient-to-br from-[#FDBA74] to-[#F39200]" />
           <div className="absolute left-8 top-1/2 -translate-y-1/2 text-white drop-shadow">
-            <div className="bg-white text-[#4F46E5] w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-md">US</div>
-            <p className="mt-3 text-xs font-bold tracking-widest text-[#A5B4FC]">CENTRO UNIVERSITÁRIO</p>
+            <div className="bg-white text-[#F39200] w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-md">US</div>
+            <p className="mt-3 text-xs font-bold tracking-widest">CENTRO UNIVERSITÁRIO</p>
             <p className="text-2xl font-black tracking-wide leading-none">UNISAPIENS</p>
             <p className="mt-1 text-[11px] font-mono tracking-widest opacity-90">SAGA</p>
           </div>
@@ -80,11 +80,11 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
 
         <form onSubmit={enviar} className="p-8 sm:p-10 flex flex-col justify-center gap-4">
           <div className="md:hidden flex items-center gap-2 mb-2">
-            <div className="bg-[#6366F1] text-white w-9 h-9 rounded-lg flex items-center justify-center font-black">US</div>
-            <span className="font-black text-[#0F172A]">UNISAPIENS · SAGA</span>
+            <div className="bg-[#F39200] text-white w-9 h-9 rounded-lg flex items-center justify-center font-black">US</div>
+            <span className="font-black text-[#1A2332]">UNISAPIENS · SAGA</span>
           </div>
           <div className="text-center mb-2">
-            <h1 className="text-2xl font-bold text-[#0F172A]">{primeiroAcesso ? "Primeiro Acesso" : criando ? "Criar Conta" : "Login"}</h1>
+            <h1 className="text-2xl font-bold text-[#1A2332]">{primeiroAcesso ? "Primeiro Acesso" : criando ? "Criar Conta" : "Login"}</h1>
             <p className="text-xs text-gray-500 mt-1">
               {primeiroAcesso
                 ? "Crie a conta da coordenação para começar."
@@ -109,14 +109,14 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
 
           <button
             type="submit" disabled={pendente}
-            className="mt-1 rounded-full py-2.5 text-sm font-extrabold text-white uppercase tracking-wider bg-gradient-to-r from-[#6366F1] to-[#4338CA] shadow-[0_6px_16px_rgb(99_102_241/0.28)] hover:brightness-110 transition disabled:opacity-60"
+            className="mt-1 rounded-full py-2.5 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#C2410C] to-[#1A2332] hover:brightness-110 transition disabled:opacity-60"
           >
             {pendente ? "Aguarde..." : criando ? "Criar conta" : "Entrar"}
           </button>
 
           {!criando && (
             <div className="text-center">
-              <button type="button" onClick={() => setAjuda((v) => !v)} className="text-xs text-gray-500 hover:text-[#6366F1]">
+              <button type="button" onClick={() => setAjuda((v) => !v)} className="text-xs text-gray-500 hover:text-[#F39200]">
                 Esqueceu a senha?
               </button>
               {ajuda && <p className="text-xs text-gray-500 mt-1">Procure a coordenação do curso para redefinir seu acesso.</p>}
@@ -126,7 +126,7 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
           {!primeiroAcesso && (
             <button
               type="button" onClick={() => trocarModo(criando ? "entrar" : "criar")}
-              className="mt-4 text-xs text-gray-500 hover:text-[#6366F1] self-center flex items-center gap-2 font-semibold"
+              className="mt-4 text-xs text-gray-500 hover:text-[#F39200] self-center flex items-center gap-2"
             >
               {criando ? <><i className="fa-solid fa-arrow-left"></i> Já tenho conta</> : <>Criar nova conta <i className="fa-solid fa-arrow-right"></i></>}
             </button>
