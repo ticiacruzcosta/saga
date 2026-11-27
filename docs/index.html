@@ -3,695 +3,692 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SAGA — Sistema de Avisos e Gestão Acadêmica | CENTRO UNIVERSITÁRIO UNISAPIENS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <title>SAGA — Apresentação do Produto | CENTRO UNIVERSITÁRIO UNISAPIENS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@400;500;600;700;800;900&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Montserrat:wght@500;600;700;800;900&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    :root {
-      --saga-azul: #1a2332;
-      --saga-laranja: #f39200;
-      --saga-laranja-escuro: #c2410c;
-      --saga-fundo: #f4f6f9;
-      --saga-superficie: #ffffff;
-      --saga-campo: #f1f3f6;
-      --saga-borda: #d1d5db;
-      --saga-titulo: #1a2332;
-      --saga-texto: #1f2937;
-      --saga-cabecalho-tabela: #f4f6f9;
-      --saga-degrade: linear-gradient(90deg, #c2410c, #1a2332);
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060911;
+      font-family: 'Montserrat', sans-serif;
+      color: #F8FAFC;
+      user-select: none;
     }
-    body {
-      font-family: "Lora", Georgia, serif;
-      background-color: var(--saga-fundo);
-      color: var(--saga-texto);
-      -webkit-font-smoothing: antialiased;
-    }
-    h1, h2, h3, h4, nav, aside, button, input, select, label, th, .font-black, .font-extrabold, .font-bold, .btn, .tabela-cab, .tabular-nums {
-      font-family: "Montserrat", sans-serif;
-      letter-spacing: -0.012em;
-    }
-    .btn {
-      display: inline-flex;
+
+    /* Palco 1920x1080 escalado proporcionalmente para qualquer tela */
+    #stage-wrapper {
+      position: fixed;
+      inset: 0;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
-      border-radius: 9999px;
-      padding: 0.55rem 1.15rem;
-      font-size: 0.8125rem;
+      background: #060911;
+    }
+    #stage {
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+      transform-origin: center center;
+      flex-shrink: 0;
+    }
+
+    /* Iluminação ambiente sutil (estilo startup SaaS) */
+    .ambient-glow-1 {
+      position: absolute;
+      width: 960px;
+      height: 960px;
+      left: -180px;
+      top: -260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(243, 146, 0, 0.20) 0%, rgba(194, 65, 12, 0.07) 42%, transparent 70%);
+      filter: blur(45px);
+      animation: pulseGlow 12s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    .ambient-glow-2 {
+      position: absolute;
+      width: 1100px;
+      height: 1100px;
+      right: -240px;
+      bottom: -320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.14) 0%, rgba(30, 58, 138, 0.10) 45%, transparent 72%);
+      filter: blur(55px);
+      animation: pulseGlow2 14s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+      pointer-events: none;
+    }
+
+    @keyframes pulseGlow {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(110px, 70px) scale(1.14); }
+    }
+    @keyframes pulseGlow2 {
+      0% { transform: translate(0, 0) scale(1.05); }
+      100% { transform: translate(-120px, -80px) scale(0.95); }
+    }
+
+    /* Barra Superior Minimalista */
+    .top-hud {
+      position: absolute;
+      top: 38px;
+      left: 68px;
+      right: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 40;
+    }
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 20px 10px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #F39200, #C2410C);
+      color: #fff;
+      font-weight: 900;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brand-text {
+      font-size: 13px;
       font-weight: 800;
-      white-space: nowrap;
-      transition: all 0.15s;
-      cursor: pointer;
+      letter-spacing: 0.06em;
+      color: #F8FAFC;
     }
-    .btn-sm { padding: 0.38rem 0.85rem; font-size: 0.75rem; }
-    .btn-principal { background: var(--saga-degrade); color: #fff; box-shadow: 0 6px 16px rgb(194 65 12 / 0.25); }
-    .btn-principal:hover { filter: brightness(1.12); }
-    .btn-escuro { background: var(--saga-azul); color: #fff; }
-    .btn-escuro:hover { filter: brightness(1.25); }
-    .btn-secundario { background: var(--saga-superficie); color: var(--saga-titulo); border: 1.5px solid var(--saga-borda); }
-    .btn-secundario:hover { border-color: var(--saga-laranja); }
-    .btn-icone { width: 2.15rem; height: 2.15rem; padding: 0; background: var(--saga-campo); color: var(--saga-texto); border-radius: 9999px; }
-    .btn-icone:hover { color: var(--saga-laranja-escuro); }
-    .campo {
-      width: 100%;
-      background: var(--saga-campo);
-      color: var(--saga-texto);
-      border: 2px solid transparent;
-      border-radius: 14px;
-      padding: 0.5rem 0.8rem;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      outline: none;
-      transition: all 0.15s;
-    }
-    .campo:focus {
-      background: var(--saga-superficie);
-      border-color: var(--saga-laranja);
-      box-shadow: 0 0 0 4px rgb(243 146 0 / 0.15);
-    }
-    .cartao {
-      background: var(--saga-superficie);
-      border-radius: 20px;
-      box-shadow: 0 1px 2px rgb(26 35 50 / 0.06), 0 8px 24px rgb(26 35 50 / 0.05);
-    }
-    .tabela-cab {
-      background: var(--saga-cabecalho-tabela);
-      color: var(--saga-titulo);
+    .brand-sub {
       font-size: 11px;
+      font-weight: 600;
+      color: #94A3B8;
+      margin-left: 6px;
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .scene-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(243, 146, 0, 0.35);
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: #FDBA74;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      transition: all 0.5s ease;
     }
-    .banner-hero {
-      background: linear-gradient(110deg, #1A2332 0%, #1A2332 45%, #7C2D12 78%, #C2410C 100%);
+    .scene-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #F39200;
+      box-shadow: 0 0 12px #F39200;
     }
-    .nav-aba-item {
-      position: relative;
-      isolation: isolate;
-      border-radius: 9999px 0 0 9999px;
-      transition: all 0.25s ease;
-    }
-    .nav-aba-ativa {
-      background: linear-gradient(270deg, var(--saga-fundo) 0%, var(--saga-fundo) 72%, #ffffff 100%);
-      color: var(--saga-titulo) !important;
+    .hud-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #F8FAFC;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
       font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .nav-aba-ativa::before,
-    .nav-aba-ativa::after {
-      content: "";
+    .hud-btn:hover {
+      background: rgba(243, 146, 0, 0.22);
+      border-color: #F39200;
+      color: #FFF;
+    }
+
+    /* Cenas com transição fluida */
+    .scene {
       position: absolute;
-      right: 0;
-      width: 18px;
-      height: 18px;
-      background: transparent;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
       pointer-events: none;
+      transition: opacity 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+      perspective: 1800px;
     }
-    .nav-aba-ativa::before {
-      top: -18px;
-      border-bottom-right-radius: 18px;
-      box-shadow: 6px 6px 0 6px var(--saga-fundo);
+    .scene.active {
+      opacity: 1;
+      pointer-events: auto;
     }
-    .nav-aba-ativa::after {
-      bottom: -18px;
-      border-top-right-radius: 18px;
-      box-shadow: 6px -6px 0 6px var(--saga-fundo);
+
+    /* Moldura Dark Minimalista */
+    .window-frame {
+      background: #0F172A;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow:
+        0 40px 110px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 0 70px rgba(243, 146, 0, 0.08);
+      overflow: hidden;
+      transform-style: preserve-3d;
+      will-change: transform;
     }
-    /* Tema Escuro */
-    html[data-tema="escuro"] {
-      --saga-fundo: #0f172a;
-      --saga-superficie: #1e293b;
-      --saga-campo: #0f172a;
-      --saga-borda: #475569;
-      --saga-titulo: #f1f5f9;
-      --saga-texto: #e5e7eb;
-      --saga-cabecalho-tabela: #223047;
+    .window-bar {
+      height: 40px;
+      background: #0B1120;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      gap: 8px;
     }
-    html[data-tema="escuro"] body { background-color: #0f172a; color: #e5e7eb; }
-    html[data-tema="escuro"] .bg-white { background-color: #1e293b !important; }
-    html[data-tema="escuro"] .text-\[\#1A2332\] { color: #f1f5f9 !important; }
-    html[data-tema="escuro"] .border-gray-200,
-    html[data-tema="escuro"] .border-gray-100 { border-color: #334155 !important; }
-    html[data-tema="escuro"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155 !important; }
-    html[data-tema="escuro"] .bg-gray-50,
-    html[data-tema="escuro"] .bg-gray-100,
-    html[data-tema="escuro"] .bg-\[\#F8FAFC\],
-    html[data-tema="escuro"] .bg-\[\#F1F3F6\] { background-color: #0f172a !important; }
-    html[data-tema="escuro"] .nav-aba-ativa {
-      background: linear-gradient(270deg, #0f172a 0%, #0f172a 72%, #1e293b 100%);
-      color: #f1f5f9 !important;
+    .dot-r { width: 11px; height: 11px; border-radius: 50%; background: #EF4444; }
+    .dot-y { width: 11px; height: 11px; border-radius: 50%; background: #F59E0B; }
+    .dot-g { width: 11px; height: 11px; border-radius: 50%; background: #10B981; }
+    .window-title {
+      margin-left: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94A3B8;
+    }
+
+    /* Barra de Controle e Legenda Inferior */
+    .caption-bar {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      padding: 12px 24px;
+      border-radius: 999px;
+      background: rgba(11, 17, 32, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .caption-step {
+      padding: 6px 13px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #F39200, #C2410C);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+    .caption-text {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #F1F5F9;
+      letter-spacing: -0.01em;
+      min-width: 620px;
+      text-align: center;
+    }
+    .scene-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 6px;
+    }
+    .scene-nav-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: #CBD5E1;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .scene-nav-btn:hover,
+    .scene-nav-btn.active {
+      background: #F39200;
+      border-color: #F39200;
+      color: #0F172A;
+    }
+
+    /* Animações cinematográficas de câmera (Pan & Slow Zoom) */
+    @keyframes camScene2 {
+      0%   { transform: scale(0.92) rotateX(6deg) rotateY(-6deg) translate3d(-30px, 20px, 0); }
+      50%  { transform: scale(1.03) rotateX(2deg) rotateY(2deg) translate3d(20px, -10px, 0); }
+      100% { transform: scale(1.08) rotateX(0deg) rotateY(4deg) translate3d(40px, -25px, 0); }
+    }
+    @keyframes camScene3 {
+      0%   { transform: scale(1.12) rotateX(3deg) rotateY(6deg) translate3d(60px, 30px, 0); }
+      100% { transform: scale(0.95) rotateX(0deg) rotateY(-3deg) translate3d(-30px, -10px, 0); }
+    }
+    @keyframes camScene4 {
+      0%   { transform: scale(0.94) rotateX(4deg) rotateY(-4deg) translate3d(-40px, 15px, 0); }
+      100% { transform: scale(1.06) rotateX(1deg) rotateY(3deg) translate3d(30px, -15px, 0); }
+    }
+    @keyframes camScene5 {
+      0%   { transform: scale(1.05) rotateX(2deg) rotateY(4deg) translate3d(35px, -10px, 0); }
+      100% { transform: scale(0.96) rotateX(0deg) rotateY(-2deg) translate3d(-25px, 10px, 0); }
+    }
+
+    .anim-cam-2 { animation: camScene2 7.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+    .anim-cam-3 { animation: camScene3 7.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+    .anim-cam-4 { animation: camScene4 7.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+    .anim-cam-5 { animation: camScene5 7.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+
+    /* Estilo de Código & Documentação (Cena 4) */
+    .code-layout {
+      display: grid;
+      grid-template-columns: 270px 1fr 480px;
+      width: 1560px;
+      height: 760px;
+      background: #0B0F19;
+    }
+    .file-tree {
+      background: #070B12;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: #94A3B8;
+      line-height: 2.05;
+    }
+    .tree-folder { color: #F39200; font-weight: 700; }
+    .tree-active {
+      background: rgba(243, 146, 0, 0.14);
+      color: #FDBA74;
+      padding: 2px 10px;
+      border-radius: 6px;
+      border-left: 2px solid #F39200;
+      display: inline-block;
+      width: 100%;
+    }
+    .code-editor {
+      padding: 24px 30px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: #E2E8F0;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      overflow: hidden;
+    }
+    .kw { color: #F472B6; font-weight: 600; }
+    .fn { color: #38BDF8; font-weight: 600; }
+    .tp { color: #FDBA74; }
+    .st { color: #34D399; }
+    .cm { color: #64748B; font-style: italic; }
+    .doc-preview {
+      padding: 26px 28px;
+      background: #0F172A;
+      overflow: hidden;
+    }
+    .doc-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(243, 146, 0, 0.16);
+      color: #FDBA74;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 12px;
     }
   </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body>
+  <div id="stage-wrapper">
+    <div id="stage">
+      <div class="ambient-glow-1"></div>
+      <div class="ambient-glow-2"></div>
+      <div class="grid-bg"></div>
 
-  <!-- MENU LATERAL (IDÊNTICO AO SAGA ATUAL) -->
-  <aside id="sidebar" class="w-64 bg-[linear-gradient(270deg,#243247_0%,#1A2332_55%,#131A26_100%)] text-white flex flex-col justify-between shrink-0 transition-all duration-300 relative overflow-hidden z-20">
-    <div class="flex-1 min-h-0 flex flex-col">
-      <!-- LOGO -->
-      <div class="px-4 pt-3.5 pb-3 mx-2 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-10 h-10 rounded-[12px] bg-white text-[#B45309] flex items-center justify-center font-black text-base shrink-0">US</div>
-          <div class="flex flex-col leading-tight min-w-0">
-            <span class="text-[9px] font-extrabold tracking-[0.08em] text-[#F7A428]">CENTRO UNIVERSITÁRIO</span>
-            <span class="text-[16px] font-black tracking-wide">UNISAPIENS</span>
-            <span class="text-[9px] tracking-[0.25em] text-slate-400">SAGA</span>
+      <!-- HUD SUPERIOR -->
+      <div class="top-hud">
+        <div class="brand-pill">
+          <div class="brand-logo">US</div>
+          <div>
+            <span class="brand-text">SAGA · CENTRO UNIVERSITÁRIO UNISAPIENS</span>
+            <span class="brand-sub">| Next.js 16 · TypeScript · Prisma · PostgreSQL</span>
+          </div>
+        </div>
+        <div class="hud-right">
+          <div class="scene-tag">
+            <span class="scene-dot"></span>
+            <span id="hud-tag">01 / APRESENTAÇÃO DO PRODUTO</span>
+          </div>
+          <a href="./saga_apresentacao.mp4" download="SAGA_Apresentacao_Unisapiens.mp4" class="hud-btn" title="Baixar vídeo em MP4 (Full HD)">
+            <i class="fa-solid fa-download"></i> Baixar Vídeo MP4
+          </a>
+          <a href="https://github.com/ticiacruzcosta/saga" target="_blank" rel="noopener noreferrer" class="hud-btn">
+            <i class="fa-brands fa-github"></i> GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- CENA 1: ABERTURA STARTUP + DASHBOARD DARK EM PERSPECTIVA -->
+      <div id="scene-1" class="scene active">
+        <div style="display:flex; align-items:center; gap:56px; width:1680px;">
+          <div style="flex:0 0 540px;">
+            <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; background:rgba(243,146,0,0.14); border:1px solid rgba(243,146,0,0.35); color:#FDBA74; font-size:11px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:18px;">
+              ENGENHARIA DA COMPUTAÇÃO · ENGETEC
+            </div>
+            <h1 style="font-size:48px; font-weight:900; line-height:1.08; letter-spacing:-0.03em; color:#FFFFFF; margin-bottom:18px;">
+              Gestão Acadêmica <span style="background:linear-gradient(90deg,#F39200,#FDBA74); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Inteligente</span> e sem Choques.
+            </h1>
+            <p style="font-size:16px; line-height:1.65; color:#94A3B8; margin-bottom:26px;">
+              Plataforma full-stack para controle diário de laboratórios, validação automática de matrizes semestrais e disparo instantâneo de avisos via Bot.
+            </p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+              <div style="padding:16px; border-radius:16px; background:rgba(30,41,59,0.55); border:1px solid rgba(255,255,255,0.08);">
+                <div style="font-size:24px; font-weight:900; color:#F39200;">100%</div>
+                <div style="font-size:12px; color:#CBD5E1; font-weight:600; margin-top:4px;">Auditoria de Choques &amp; Lotação em Tempo Real</div>
+              </div>
+              <div style="padding:16px; border-radius:16px; background:rgba(30,41,59,0.55); border:1px solid rgba(255,255,255,0.08);">
+                <div style="font-size:24px; font-weight:900; color:#34D399;">2026.2</div>
+                <div style="font-size:12px; color:#CBD5E1; font-weight:600; margin-top:4px;">Importação .XLSX &amp; Bot Telegram Integrado</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="cam-box-1" class="window-frame anim-cam-2" style="width:1080px;">
+            <div class="window-bar">
+              <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              <span class="window-title">saga-unisapiens — Dashboard Operacional (Dark Mode)</span>
+            </div>
+            <img src="./img/1_dashboard_dark.png" alt="Dashboard SAGA Dark Mode" style="width:100%; display:block;" />
           </div>
         </div>
       </div>
 
-      <!-- NAVEGAÇÃO -->
-      <nav class="flex-1 overflow-y-auto py-3 pl-3 pr-0 space-y-3 text-[13px]">
-        <div>
-          <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 px-3 mb-1">Operacional</p>
-          <ul class="space-y-0.5">
-            <li>
-              <button onclick="irPara('dashboard')" id="nav-dashboard" class="nav-aba-item nav-aba-ativa w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs bg-[#FFF4E5] text-[#C2410C] shrink-0"><i class="fa-solid fa-gauge-high"></i></span>
-                <span class="truncate">Dashboard</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('grade')" id="nav-grade" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-calendar-days"></i></span>
-                <span class="truncate">Grade do Semestre</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('semana')" id="nav-semana" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-calendar-week"></i></span>
-                <span class="truncate">Horário da Semana</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('importar')" id="nav-importar" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-file-arrow-up"></i></span>
-                <span class="truncate">Importar Planilha</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('historico')" id="nav-historico" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-bell"></i></span>
-                <span class="truncate">Histórico de Avisos</span>
-              </button>
-            </li>
-          </ul>
+      <!-- CENA 2: PAN & ZOOM PELO DASHBOARD E GRADE DO SEMESTRE EM MODO ESCURO -->
+      <div id="scene-2" class="scene">
+        <div id="cam-box-2" class="window-frame" style="width:1440px;">
+          <div class="window-bar">
+            <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+            <span class="window-title">components/SagaApp.tsx — Matriz de Oferta Semestral 2026.2 (Motor de Integridade)</span>
+          </div>
+          <img src="./img/2_grade_dark.png" alt="Grade do Semestre SAGA Dark Mode" style="width:100%; display:block;" />
         </div>
-
-        <div>
-          <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 px-3 mb-1">Cadastros</p>
-          <ul class="space-y-0.5">
-            <li>
-              <button onclick="irPara('turmas')" id="nav-turmas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-people-group"></i></span>
-                <span class="truncate">Cursos e Turmas</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('professores')" id="nav-professores" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-chalkboard-user"></i></span>
-                <span class="truncate">Professores</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('salas')" id="nav-salas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-door-open"></i></span>
-                <span class="truncate">Salas e Laboratórios</span>
-              </button>
-            </li>
-            <li>
-              <button onclick="irPara('disciplinas')" id="nav-disciplinas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
-                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-book"></i></span>
-                <span class="truncate">Ofertas e Disciplinas</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </nav>
-    </div>
-
-    <!-- RODAPÉ SIDEBAR -->
-    <div class="p-3 mx-2 border-t border-white/10 flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-full bg-[#F39200] text-[#1A2332] font-black text-xs flex items-center justify-center shrink-0">VS</div>
-      <div class="min-w-0 flex-1">
-        <div class="text-xs font-extrabold truncate">Visitante (GitHub Pages)</div>
-        <div class="text-[10px] text-emerald-300 font-semibold truncate">● Demonstração Isolada</div>
       </div>
-    </div>
-  </aside>
 
-  <!-- ÁREA PRINCIPAL -->
-  <main class="flex-1 flex flex-col h-screen overflow-hidden">
-    <!-- CABEÇALHO SUPERIOR -->
-    <header class="bg-white border-b border-gray-200 h-16 px-6 flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-3">
-        <h2 id="titulo-pagina" class="text-xl font-black text-[#1A2332] tracking-tight">Horário do dia</h2>
-        <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF4E5] text-[#B45309] text-[11px] font-extrabold border border-orange-200/70">
-          <i class="fa-solid fa-flask"></i> Ambiente de Demonstração (Dados Simulados em Memória)
-        </span>
-      </div>
-      <div class="flex items-center gap-2.5">
-        <span class="inline-flex items-center gap-2 text-xs px-3.5 py-1.5 rounded-full font-extrabold bg-[#1A2332] text-white shadow-xs">
-          <span class="w-2 h-2 rounded-full bg-[#F39200]"></span>
-          Semestre 2026.2
-        </span>
-        <button onclick="alternarTema()" id="btn-tema" title="Alternar tema claro/escuro" class="w-9 h-9 rounded-full border border-gray-200 bg-white text-[#1A2332] flex items-center justify-center text-sm hover:border-[#F39200] transition cursor-pointer">
-          <i id="icone-tema" class="fa-solid fa-moon"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- CONTEÚDO ROLÁVEL -->
-    <div class="flex-1 overflow-y-auto p-6 space-y-5">
-
-      <!-- 1. ABA DASHBOARD -->
-      <section id="aba-dashboard" class="aba-secao space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div class="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none"></div>
-          <div class="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none"></div>
-
-          <div class="relative space-y-2.5 max-w-2xl">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
-              <i class="fa-solid fa-bolt text-[#FDBA74]"></i> Painel Operacional Diário
-            </span>
-            <h3 class="text-2xl font-black tracking-tight">Quarta-Feira · Semestre 2026.2</h3>
-            <div class="flex flex-wrap items-center gap-2 pt-0.5">
-              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold tabular-nums">
-                <i class="fa-solid fa-chalkboard-user text-[#FDBA74]"></i> <span id="dash-total-aulas">6</span> aula(s) no dia
-              </span>
-              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold tabular-nums">
-                <i class="fa-solid fa-computer text-emerald-300"></i> 5 laboratório(s) ocupado(s)
-              </span>
-              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/25 text-emerald-200 text-xs font-extrabold">
-                <i class="fa-solid fa-circle-check"></i> 0 conflitos hoje
-              </span>
+      <!-- CENA 3: QUADRO GERAL DA SEMANA + IMPORTAÇÃO DE PLANILHA EM COMPOSIÇÃO DUPLA -->
+      <div id="scene-3" class="scene">
+        <div id="cam-box-3" style="position:relative; width:1620px; height:820px;">
+          <div class="window-frame" style="position:absolute; left:0; top:20px; width:1080px; z-index:10;">
+            <div class="window-bar">
+              <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              <span class="window-title">components/telas/TelaSemana.tsx — Quadro Geral da Semana (Segunda a Sábado)</span>
             </div>
+            <img src="./img/3_semana_dark.png" alt="Horário da Semana SAGA Dark Mode" style="width:100%; display:block;" />
+          </div>
+          <div class="window-frame" style="position:absolute; right:0; bottom:15px; width:860px; z-index:20; border-color:rgba(243,146,0,0.4);">
+            <div class="window-bar">
+              <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              <span class="window-title">components/telas/TelaImportar.tsx — Raio-X e Pré-Conferência .XLSX</span>
+            </div>
+            <img src="./img/6_importar_dark.png" alt="Importar Planilha SAGA Dark Mode" style="width:100%; display:block;" />
           </div>
         </div>
+      </div>
 
-        <div class="cartao p-5 space-y-3.5">
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div class="md:col-span-6">
-              <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                <i class="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar Turma, Disciplina, Docente ou Sala
-              </label>
-              <input id="dash-busca" oninput="renderDashboard()" type="text" placeholder="Ex: SIST. DE INFORM., LAB04, Anderson..." class="campo" />
+      <!-- CENA 4: ARQUITETURA LIMPA DO CÓDIGO & DOCUMENTAÇÃO TÉCNICA (IDE DARK) -->
+      <div id="scene-4" class="scene">
+        <div id="cam-box-4" class="window-frame">
+          <div class="window-bar">
+            <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+            <span class="window-title">Visual Studio Code — saga / lib / validacao-choque.ts &amp; README.md</span>
+          </div>
+          <div class="code-layout">
+            <div class="file-tree">
+              <div style="font-size:11px; font-weight:800; letter-spacing:0.1em; color:#64748B; margin-bottom:10px;">EXPLORER · SAGA</div>
+              <div class="tree-folder">▾ app/</div>
+              <div style="padding-left:14px;">page.tsx</div>
+              <div style="padding-left:14px;">actions.ts</div>
+              <div style="padding-left:14px;">importacao.ts</div>
+              <div style="padding-left:14px;">realocacao.ts</div>
+              <div class="tree-folder">▾ components/</div>
+              <div style="padding-left:14px;">SagaApp.tsx</div>
+              <div style="padding-left:14px;">TelaLogin.tsx</div>
+              <div style="padding-left:14px;">▾ telas/</div>
+              <div style="padding-left:28px;">TelaSemana.tsx</div>
+              <div style="padding-left:28px;">TelaHistorico.tsx</div>
+              <div style="padding-left:28px;">TelaImportar.tsx</div>
+              <div class="tree-folder">▾ lib/</div>
+              <div class="tree-active">validacao-choque.ts</div>
+              <div style="padding-left:14px;">planilha-oferta.ts</div>
+              <div style="padding-left:14px;">gerar-oferta.ts</div>
+              <div class="tree-folder">▾ prisma/</div>
+              <div style="padding-left:14px;">schema.prisma</div>
+              <div style="color:#FDBA74; font-weight:700; margin-top:6px;">★ README.md</div>
             </div>
-            <div class="md:col-span-6">
-              <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                <i class="fa-solid fa-clock text-[#B45309] mr-1"></i> Filtrar por Turno
-              </label>
-              <div class="grid grid-cols-3 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
-                <button onclick="setTurnoDash('TODOS')" id="turno-TODOS" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold bg-[#1A2332] text-white">Todos</button>
-                <button onclick="setTurnoDash('VESPERTINO')" id="turno-VESPERTINO" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600">Vespertino</button>
-                <button onclick="setTurnoDash('NOTURNO')" id="turno-NOTURNO" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600">Noturno</button>
+
+            <div class="code-editor">
+              <div class="cm">// Motor de Integridade Acadêmica — Validação em Tempo Real (RN01, RN02, RN03)</div>
+              <div><span class="kw">export function</span> <span class="fn">validarOferta</span>(</div>
+              <div>&nbsp;&nbsp;turmas: <span class="tp">TurmaParaValidar</span>[],</div>
+              <div>&nbsp;&nbsp;rodizios: <span class="tp">Array</span>&lt;[<span class="tp">number</span>, <span class="tp">number</span>]&gt;</div>
+              <div>): <span class="tp">Map</span>&lt;<span class="tp">number</span>, <span class="tp">Conflito</span>[]&gt; {</div>
+              <div>&nbsp;&nbsp;<span class="kw">const</span> conflitos = <span class="kw">new</span> <span class="tp">Map</span>&lt;<span class="tp">number</span>, <span class="tp">Conflito</span>[]&gt;();</div>
+              <br/>
+              <div>&nbsp;&nbsp;<span class="cm">// RN01: Restrição rigorosa de choque docente no mesmo dia e faixa horária</span></div>
+              <div>&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">const</span> [chaveSlot, alocadas] <span class="kw">of</span> agruparPorDiaHorario(turmas)) {</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">verificarChoqueDocente</span>(alocadas, conflitos);</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">verificarColisaoAmbiente</span>(alocadas, rodizios, conflitos);</div>
+              <div>&nbsp;&nbsp;}</div>
+              <br/>
+              <div>&nbsp;&nbsp;<span class="cm">// RN02 &amp; RN03: Capacidade física do laboratório e travas (Lock)</span></div>
+              <div>&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">const</span> t <span class="kw">of</span> turmas) {</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (t.ambienteCapacidade &amp;&amp; t.vagas &gt; t.ambienteCapacidade) {</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">registrarErro</span>(conflitos, t.id, <span class="st">`Lotação (${t.vagas}) excede teto (${t.ambienteCapacidade})`</span>);</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+              <div>&nbsp;&nbsp;}</div>
+              <div>&nbsp;&nbsp;<span class="kw">return</span> conflitos;</div>
+              <div>}</div>
+            </div>
+
+            <div class="doc-preview">
+              <span class="doc-badge">DOCUMENTAÇÃO OFICIAL · README.MD</span>
+              <h3 style="font-size:20px; font-weight:900; color:#FFFFFF; margin-bottom:6px;">SAGA — Sistema de Avisos e Gestão Acadêmica</h3>
+              <p style="font-size:12px; color:#F39200; font-weight:700; margin-bottom:16px;">CENTRO UNIVERSITÁRIO UNISAPIENS · Engenharia da Computação</p>
+              <p style="font-size:12.5px; color:#CBD5E1; line-height:1.65; margin-bottom:18px;">
+                Arquitetura full-stack modular desenvolvida no Projeto de Extensão IV (Orientação: Prof. Allan Kardec Gurgel do Amaral) para o Núcleo ENGETEC.
+              </p>
+              <div style="font-size:12px;">
+                <div style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.04); border-left:3px solid #F39200; margin-bottom:10px;">
+                  <strong style="color:#FFF;">✔ Stack Tecnológica:</strong>
+                  <div style="color:#94A3B8; margin-top:2px;">Next.js 16 · React 19 · TypeScript · Prisma 6 · PostgreSQL (Neon)</div>
+                </div>
+                <div style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.04); border-left:3px solid #10B981; margin-bottom:10px;">
+                  <strong style="color:#FFF;">✔ Regras Auditadas:</strong>
+                  <div style="color:#94A3B8; margin-top:2px;">Zero choque docente, controle de lotação, Locks e rodízio 1x1/2x2</div>
+                </div>
+                <div style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.04); border-left:3px solid #38BDF8;">
+                  <strong style="color:#FFF;">✔ Equipe de Engenharia:</strong>
+                  <div style="color:#94A3B8; margin-top:2px;">Leticia Cruz · Leticia Farias · Vitor Pelicer · Victor Matheus · João Pedro</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="cartao overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm min-w-[760px]">
-            <thead>
-              <tr class="tabela-cab">
-                <th class="p-3.5 pl-5">Turma / Curso</th>
-                <th class="p-3.5">Disciplina / Docente</th>
-                <th class="p-3.5">Horário</th>
-                <th class="p-3.5">Sala / Lab</th>
-                <th class="p-3.5 text-center">Status</th>
-                <th class="p-3.5 pr-5 text-right">Ações Rápidas</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-dashboard" class="divide-y divide-gray-200"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 2. ABA GRADE DO SEMESTRE -->
-      <section id="aba-grade" class="aba-secao hidden space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div class="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none"></div>
-          <div class="relative space-y-2.5">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
-              <i class="fa-solid fa-table-list text-[#FDBA74]"></i> Matriz de Oferta Acadêmica
-            </span>
-            <h3 class="text-2xl font-black tracking-tight">Semestre 2026.2 · Grade Completa</h3>
-            <div class="flex flex-wrap gap-2">
-              <span class="px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold"><i class="fa-solid fa-layer-group text-[#FDBA74] mr-1"></i> 127 ofertas no semestre</span>
-              <span class="px-3.5 py-1.5 rounded-full bg-emerald-500/25 text-emerald-200 text-xs font-extrabold"><i class="fa-solid fa-shield-check mr-1"></i> Motor de Integridade Ativo</span>
+      <!-- CENA 5: CADASTROS EM BLOCOS (CURSOS & SALAS/LABORATÓRIOS EM MODO ESCURO) -->
+      <div id="scene-5" class="scene">
+        <div id="cam-box-5" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; width:1660px;">
+          <div class="window-frame">
+            <div class="window-bar">
+              <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              <span class="window-title">Cursos &amp; Turmas — Visão em Blocos Compactos</span>
             </div>
+            <img src="./img/4_cursos_dark.png" alt="Cursos e Turmas SAGA Dark Mode" style="width:100%; display:block;" />
           </div>
-        </div>
-
-        <div class="cartao p-5">
-          <img src="./img/grade.png" alt="Grade do Semestre SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-      <!-- 3. ABA HORÁRIO DA SEMANA -->
-      <section id="aba-semana" class="aba-secao hidden space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex items-center justify-between">
-          <div class="relative space-y-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
-              <i class="fa-solid fa-calendar-week text-[#FDBA74]"></i> Quadro Geral da Semana
-            </span>
-            <h3 class="text-2xl font-black">Semestre 2026.2 · Segunda a Sábado</h3>
+          <div class="window-frame">
+            <div class="window-bar">
+              <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+              <span class="window-title">Infraestrutura — Salas e Laboratórios Controlados</span>
+            </div>
+            <img src="./img/5_salas_dark.png" alt="Salas e Laboratórios SAGA Dark Mode" style="width:100%; display:block;" />
           </div>
-          <button onclick="window.print()" class="btn btn-sm bg-white text-[#1A2332] font-extrabold"><i class="fa-solid fa-print text-[#C2410C]"></i> Imprimir</button>
-        </div>
-        <div class="cartao p-5">
-          <img src="./img/semana.png" alt="Horário da Semana SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-      <!-- 4. ABA IMPORTAR PLANILHA -->
-      <section id="aba-importar" class="aba-secao hidden space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
-          <div class="relative space-y-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
-              <i class="fa-solid fa-file-excel text-[#FDBA74]"></i> Importação de Oferta
-            </span>
-            <h3 class="text-2xl font-black">Semestre 2026.2</h3>
-          </div>
-        </div>
-        <div class="cartao p-5">
-          <img src="./img/importar.png" alt="Importar Planilha SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-      <!-- 5. ABA HISTÓRICO DE AVISOS -->
-      <section id="aba-historico" class="aba-secao hidden space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
-          <div class="relative space-y-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
-              <i class="fa-solid fa-bell text-[#FDBA74]"></i> Central de Comunicações
-            </span>
-            <h3 id="hist-titulo-banner" class="text-2xl font-black">Avisos Acadêmicos Gerados</h3>
-          </div>
-        </div>
-
-        <div class="cartao overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="tabela-cab">
-                <th class="p-3.5 pl-5">Data/Hora</th>
-                <th class="p-3.5">Turma</th>
-                <th class="p-3.5">Mensagem</th>
-                <th class="p-3.5 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-historico" class="divide-y divide-gray-200"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 6. ABA CURSOS E TURMAS -->
-      <section id="aba-turmas" class="aba-secao hidden space-y-5">
-        <div class="cartao p-5">
-          <img src="./img/cursos.png" alt="Cursos e Turmas SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-      <!-- 7. ABA PROFESSORES -->
-      <section id="aba-professores" class="aba-secao hidden space-y-5">
-        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
-          <div class="relative space-y-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
-              <i class="fa-solid fa-chalkboard-user text-[#FDBA74]"></i> Cadastros Acadêmicos
-            </span>
-            <h3 class="text-2xl font-black">Corpo Docente</h3>
-          </div>
-        </div>
-        <div id="grid-professores" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-      </section>
-
-      <!-- 8. ABA SALAS E LABORATÓRIOS -->
-      <section id="aba-salas" class="aba-secao hidden space-y-5">
-        <div class="cartao p-5">
-          <img src="./img/salas.png" alt="Salas e Laboratórios SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-      <!-- 9. ABA OFERTAS E DISCIPLINAS -->
-      <section id="aba-disciplinas" class="aba-secao hidden space-y-5">
-        <div class="cartao p-5">
-          <img src="./img/grade.png" alt="Ofertas e Disciplinas SAGA" class="w-full rounded-xl border border-gray-200" />
-        </div>
-      </section>
-
-    </div>
-  </main>
-
-  <!-- MODAL DE EDIÇÃO RÁPIDA (SIMULAÇÃO) -->
-  <div id="modal-editar" class="fixed inset-0 bg-black/50 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
-    <div class="cartao p-6 w-full max-w-md space-y-4 border-t-4 border-[#F39200]">
-      <div>
-        <h3 class="text-lg font-black text-[#1A2332]">Alterar Sala / Docente (Simulação)</h3>
-        <p id="modal-subtitulo" class="text-xs text-gray-500 mt-0.5"></p>
-      </div>
-      <div class="space-y-3 text-sm">
-        <div>
-          <label class="block text-xs font-extrabold uppercase text-gray-500 mb-1">Novo Laboratório / Sala</label>
-          <select id="modal-sala" class="campo"></select>
-        </div>
-        <div>
-          <label class="block text-xs font-extrabold uppercase text-gray-500 mb-1">Docente Responsável</label>
-          <select id="modal-prof" class="campo"></select>
         </div>
       </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="fecharModal()" class="btn btn-sm btn-secundario">Cancelar</button>
-        <button onclick="salvarEdicaoDemo()" class="btn btn-sm btn-principal"><i class="fa-solid fa-check"></i> Salvar e Gerar Aviso</button>
+
+      <!-- BARRA DE LEGENDA E CONTROLE DE CENAS -->
+      <div class="caption-bar">
+        <button onclick="alternarPausa()" id="btn-play" class="scene-nav-btn" title="Pausar / Continuar apresentação">
+          <i id="icone-play" class="fa-solid fa-pause"></i>
+        </button>
+        <span id="cap-step" class="caption-step">01 / 05</span>
+        <span id="cap-text" class="caption-text">Dashboard Operacional em Modo Escuro · Controle diário de aulas, salas e laboratórios</span>
+        <div class="scene-dots">
+          <button onclick="selecionarCena(0)" id="dot-0" class="scene-nav-btn active">1</button>
+          <button onclick="selecionarCena(1)" id="dot-1" class="scene-nav-btn">2</button>
+          <button onclick="selecionarCena(2)" id="dot-2" class="scene-nav-btn">3</button>
+          <button onclick="selecionarCena(3)" id="dot-3" class="scene-nav-btn">4</button>
+          <button onclick="selecionarCena(4)" id="dot-4" class="scene-nav-btn">5</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    let turnoFiltro = "TODOS";
-    let editandoId = null;
+    const cenas = [
+      {
+        id: "scene-1",
+        tag: "01 / APRESENTAÇÃO DO PRODUTO",
+        step: "01 / 05",
+        text: "Dashboard Operacional em Modo Escuro · Controle diário de aulas, salas e laboratórios",
+        box: "cam-box-1",
+        anim: "anim-cam-2"
+      },
+      {
+        id: "scene-2",
+        tag: "02 / MOTOR DE INTEGRIDADE & MATRIZ 2026.2",
+        step: "02 / 05",
+        text: "Grade do Semestre · Auditoria automática de choques docentes, capacidade física e rodízios",
+        box: "cam-box-2",
+        anim: "anim-cam-3"
+      },
+      {
+        id: "scene-3",
+        tag: "03 / QUADRO SEMANAL & IMPORTAÇÃO .XLSX",
+        step: "03 / 05",
+        text: "Visão Panorâmica da Semana e Importação Automatizada de Planilhas com Pré-Conferência",
+        box: "cam-box-3",
+        anim: "anim-cam-4"
+      },
+      {
+        id: "scene-4",
+        tag: "04 / ARQUITETURA DE CÓDIGO & DOCUMENTAÇÃO",
+        step: "04 / 05",
+        text: "Código Limpo em TypeScript + Next.js 16 + Prisma ORM e Documentação Estruturada",
+        box: "cam-box-4",
+        anim: "anim-cam-2"
+      },
+      {
+        id: "scene-5",
+        tag: "05 / INFRAESTRUTURA ACADÊMICA & TURMAS",
+        step: "05 / 05",
+        text: "Mapeamento de Cursos, Turmas, Corpo Docente e Capacidade Física de Laboratórios",
+        box: "cam-box-5",
+        anim: "anim-cam-5"
+      }
+    ];
 
-    const dadosDemo = {
-      salas: ["LAB01", "LAB02", "LAB04", "LAB05", "LAB07", "SALA 12", "SALA 26", "EAD"],
-      professores: [
-        { nome: "ALLAN KARDEC GURGEL DO AMARAL", email: "allan.amaral@unisapiens.edu.br", aulas: 6, dias: ["SEG", "QUA", "SEX"] },
-        { nome: "IVES LIMA BATISTA", email: "ives.batista@unisapiens.edu.br", aulas: 5, dias: ["TER", "QUA", "QUI"] },
-        { nome: "ANDERSON SEIXAS", email: "anderson.seixas@unisapiens.edu.br", aulas: 4, dias: ["SEG", "QUA"] },
-        { nome: "KAMILLA RAMIRES MAY", email: "kamilla.may@unisapiens.edu.br", aulas: 5, dias: ["TER", "QUI", "SEX"] },
-        { nome: "BENITO FRANCO", email: "benito.franco@unisapiens.edu.br", aulas: 4, dias: ["SEG", "QUA", "SEX"] },
-        { nome: "CARLOS EDUARDO ROCHA", email: "carlos.rocha@unisapiens.edu.br", aulas: 4, dias: ["TER", "QUA"] }
-      ],
-      aulasHoje: [
-        { id: 1, turma: "ENG. COMPUTAÇÃO 7º A", disciplina: "PROJETO DE EXTENSÃO IV", prof: "ALLAN KARDEC GURGEL DO AMARAL", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB04", travada: true, alterada: false },
-        { id: 2, turma: "SIST. DE INFORM. 4º A", disciplina: "ALGORITMOS E ESTRUTURAS DE DADOS II", prof: "IVES LIMA BATISTA", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB01", travada: false, alterada: false },
-        { id: 3, turma: "ENG. SOFTWARE 2º B", disciplina: "PROGRAMAÇÃO WEB FULL-STACK", prof: "ANDERSON SEIXAS", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB02", travada: false, alterada: false },
-        { id: 4, turma: "BIG DATA E I.A. 3º A", disciplina: "APRENDIZADO DE MÁQUINA", prof: "CARLOS EDUARDO ROCHA", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB05", travada: true, alterada: false },
-        { id: 5, turma: "ENG. CIVIL 4º A", disciplina: "RESISTÊNCIA DOS MATERIAIS", prof: "KAMILLA RAMIRES MAY", horario: "14:00 - 16:45", turno: "VESPERTINO", sala: "SALA 26", travada: false, alterada: false },
-        { id: 6, turma: "JOGOS DIGITAIS 2º A", disciplina: "MODELAGEM E MOTORES GRÁFICOS", prof: "BENITO FRANCO", horario: "14:00 - 16:45", turno: "VESPERTINO", sala: "LAB07", travada: false, alterada: false }
-      ],
-      avisos: [
-        { quando: "Hoje, 18:15", turma: "ENG. COMPUTAÇÃO 7º A", mensagem: "Aula confirmada no LAB04 com Prof. Allan Kardec às 19:00.", status: "Enviado" },
-        { quando: "Hoje, 17:40", turma: "SIST. DE INFORM. 4º A", mensagem: "Alteração de sala: Algoritmos e Estruturas de Dados II acontecerá hoje no LAB01.", status: "Enviado" }
-      ]
-    };
+    let cenaAtual = 0;
+    let pausado = false;
+    let timer = null;
 
-    const titulosAbas = {
-      dashboard: "Horário do dia",
-      grade: "Grade do semestre",
-      semana: "Horário da semana",
-      importar: "Importar planilha",
-      historico: "Histórico de avisos",
-      turmas: "Cursos e turmas",
-      professores: "Professores",
-      salas: "Salas e laboratórios",
-      disciplinas: "Ofertas e disciplinas"
-    };
+    function ajustarEscala() {
+      const stage = document.getElementById("stage");
+      const scaleX = window.innerWidth / 1920;
+      const scaleY = window.innerHeight / 1080;
+      const scale = Math.min(scaleX, scaleY);
+      stage.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener("resize", ajustarEscala);
+    ajustarEscala();
 
-    function irPara(id) {
-      document.querySelectorAll(".aba-secao").forEach(s => s.classList.add("hidden"));
-      document.getElementById("aba-" + id).classList.remove("hidden");
-      document.getElementById("titulo-pagina").innerText = titulosAbas[id] || "SAGA";
+    function ativarCena(idx) {
+      cenaAtual = idx;
+      const c = cenas[idx];
+      document.querySelectorAll(".scene").forEach(el => el.classList.remove("active"));
+      document.getElementById(c.id).classList.add("active");
+      document.getElementById("hud-tag").innerText = c.tag;
+      document.getElementById("cap-step").innerText = c.step;
+      document.getElementById("cap-text").innerText = c.text;
 
-      document.querySelectorAll(".nav-aba-item").forEach(btn => {
-        btn.classList.remove("nav-aba-ativa");
-        const icone = btn.querySelector(".nav-icone");
-        if (icone) icone.className = "nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0";
-      });
+      for (let i = 0; i < 5; i++) {
+        const d = document.getElementById("dot-" + i);
+        if (d) d.classList.toggle("active", i === idx);
+      }
 
-      const ativo = document.getElementById("nav-" + id);
-      if (ativo) {
-        ativo.classList.add("nav-aba-ativa");
-        const icone = ativo.querySelector(".nav-icone");
-        if (icone) icone.className = "nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs bg-[#FFF4E5] text-[#C2410C] shrink-0";
+      if (c.box && c.anim) {
+        const b = document.getElementById(c.box);
+        b.classList.remove(c.anim);
+        void b.offsetWidth;
+        b.classList.add(c.anim);
       }
     }
 
-    function setTurnoDash(t) {
-      turnoFiltro = t;
-      ["TODOS", "VESPERTINO", "NOTURNO"].forEach(k => {
-        const b = document.getElementById("turno-" + k);
-        b.className = k === t
-          ? "py-1.5 px-2 rounded-[10px] text-xs font-extrabold bg-[#1A2332] text-white"
-          : "py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600";
-      });
-      renderDashboard();
+    function selecionarCena(idx) {
+      ativarCena(idx);
+      reiniciarTimer();
     }
 
-    function renderDashboard() {
-      const busca = (document.getElementById("dash-busca").value || "").toLowerCase();
-      const lista = dadosDemo.aulasHoje.filter(a => {
-        if (turnoFiltro !== "TODOS" && a.turno !== turnoFiltro) return false;
-        if (busca && !`${a.turma} ${a.disciplina} ${a.prof} ${a.sala}`.toLowerCase().includes(busca)) return false;
-        return true;
-      });
-      document.getElementById("dash-total-aulas").innerText = lista.length;
-
-      document.getElementById("tbody-dashboard").innerHTML = lista.map(a => `
-        <tr class="hover:bg-gray-50/80 transition">
-          <td class="p-3.5 pl-5">
-            <div class="font-extrabold text-[#1A2332]">${a.turma}</div>
-            <div class="text-[11px] font-bold text-gray-400">${a.turno}</div>
-          </td>
-          <td class="p-3.5">
-            <div class="font-bold text-gray-900">${a.disciplina}</div>
-            <div class="text-xs text-gray-500 mt-0.5"><i class="fa-solid fa-chalkboard-user text-[#B45309] mr-1"></i>${a.prof}</div>
-          </td>
-          <td class="p-3.5 whitespace-nowrap">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-bold tabular-nums text-[#1A2332]">
-              <i class="fa-regular fa-clock text-[#B45309]"></i> ${a.horario}
-            </span>
-          </td>
-          <td class="p-3.5">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF4E5] text-[#B45309] font-extrabold text-xs">
-              <i class="fa-solid fa-computer"></i> ${a.sala}
-            </span>
-          </td>
-          <td class="p-3.5 text-center">
-            ${a.alterada
-              ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-extrabold"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Alterada hoje</span>`
-              : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-extrabold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmada</span>`
-            }
-          </td>
-          <td class="p-3.5 pr-5 text-right">
-            <div class="inline-flex items-center gap-1.5">
-              <button onclick="alternarTrava(${a.id})" title="${a.travada ? 'Sala travada (Lock ativo)' : 'Travar sala'}" class="btn btn-icone ${a.travada ? '!bg-[#FFF4E5] !text-[#C2410C]' : ''}">
-                <i class="fa-solid ${a.travada ? 'fa-lock' : 'fa-lock-open'} text-xs"></i>
-              </button>
-              <button onclick="abrirModalEditar(${a.id})" title="Trocar sala ou docente no dia" class="btn btn-icone">
-                <i class="fa-solid fa-pen text-xs"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `).join("");
+    function alternarPausa() {
+      pausado = !pausado;
+      document.getElementById("icone-play").className = pausado ? "fa-solid fa-play" : "fa-solid fa-pause";
+      reiniciarTimer();
     }
 
-    function alternarTrava(id) {
-      const a = dadosDemo.aulasHoje.find(x => x.id === id);
-      if (a) {
-        a.travada = !a.travada;
-        renderDashboard();
+    function reiniciarTimer() {
+      if (timer) clearInterval(timer);
+      if (!pausado) {
+        timer = setInterval(() => {
+          ativarCena((cenaAtual + 1) % cenas.length);
+        }, 6800);
       }
     }
 
-    function abrirModalEditar(id) {
-      const a = dadosDemo.aulasHoje.find(x => x.id === id);
-      if (!a) return;
-      editandoId = id;
-      document.getElementById("modal-subtitulo").innerText = `${a.turma} · ${a.disciplina}`;
-
-      const selSala = document.getElementById("modal-sala");
-      selSala.innerHTML = dadosDemo.salas.map(s => {
-        const ocupante = dadosDemo.aulasHoje.find(x => x.id !== a.id && x.sala === s && x.horario === a.horario);
-        return `<option value="${s}" ${s === a.sala ? "selected" : ""}>${s} ${ocupante ? `— Ocupado: ${ocupante.turma}` : "— Livre"}</option>`;
-      }).join("");
-
-      const selProf = document.getElementById("modal-prof");
-      selProf.innerHTML = dadosDemo.professores.map(p => `<option value="${p.nome}" ${p.nome === a.prof ? "selected" : ""}>${p.nome}</option>`).join("");
-
-      const modal = document.getElementById("modal-editar");
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
-
-    function fecharModal() {
-      const modal = document.getElementById("modal-editar");
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
-
-    function salvarEdicaoDemo() {
-      const a = dadosDemo.aulasHoje.find(x => x.id === editandoId);
-      if (!a) return;
-      a.sala = document.getElementById("modal-sala").value;
-      a.prof = document.getElementById("modal-prof").value;
-      a.alterada = true;
-
-      dadosDemo.avisos.unshift({
-        quando: "Agora mesmo",
-        turma: a.turma,
-        mensagem: `Alteração de aula: ${a.disciplina} (${a.turma}) hoje acontecerá na sala/lab ${a.sala} com ${a.prof}.`,
-        status: "Enviado"
-      });
-
-      fecharModal();
-      renderDashboard();
-      renderHistorico();
-    }
-
-    function renderHistorico() {
-      document.getElementById("tbody-historico").innerHTML = dadosDemo.avisos.map(av => `
-        <tr>
-          <td class="p-3.5 pl-5 text-xs text-gray-500 whitespace-nowrap">${av.quando}</td>
-          <td class="p-3.5 font-extrabold text-[#1A2332]">${av.turma}</td>
-          <td class="p-3.5">${av.mensagem}</td>
-          <td class="p-3.5 text-center">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-extrabold">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${av.status}
-            </span>
-          </td>
-        </tr>
-      `).join("");
-    }
-
-    function renderProfessores() {
-      document.getElementById("grid-professores").innerHTML = dadosDemo.professores.map(p => {
-        const ini = p.nome.split(" ").slice(0, 2).map(x => x[0]).join("");
-        return `
-          <div class="cartao p-4 space-y-3 relative overflow-hidden">
-            <span class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1A2332] to-[#F39200]"></span>
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-[#1A2332] text-[#F39200] font-black text-xs flex items-center justify-center shrink-0">${ini}</div>
-              <div class="min-w-0">
-                <div class="font-extrabold text-sm text-[#1A2332] truncate">${p.nome}</div>
-                <div class="text-xs text-gray-500 truncate">${p.email}</div>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-1.5 text-[11px]">
-              <span class="px-2.5 py-0.5 rounded-full bg-[#FFF4E5] text-[#B45309] font-extrabold">${p.aulas} aulas</span>
-              ${p.dias.map(d => `<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-bold">${d}</span>`).join("")}
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
-
-    function alternarTema() {
-      const html = document.documentElement;
-      const icone = document.getElementById("icone-tema");
-      if (html.getAttribute("data-tema") === "escuro") {
-        html.removeAttribute("data-tema");
-        icone.className = "fa-solid fa-moon";
-      } else {
-        html.setAttribute("data-tema", "escuro");
-        icone.className = "fa-solid fa-sun text-[#F39200]";
-      }
-    }
-
-    renderDashboard();
-    renderHistorico();
-    renderProfessores();
+    reiniciarTimer();
   </script>
 </body>
 </html>
