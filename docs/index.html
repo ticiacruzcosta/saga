@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAGA — Sistema de Avisos e Gestão Acadêmica | CENTRO UNIVERSITÁRIO UNISAPIENS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Montserrat:wght@400;500;600;700;800;900&display=swap" />
+  <style>
+    :root {
+      --saga-azul: #1a2332;
+      --saga-laranja: #f39200;
+      --saga-laranja-escuro: #c2410c;
+      --saga-fundo: #f4f6f9;
+      --saga-superficie: #ffffff;
+      --saga-campo: #f1f3f6;
+      --saga-borda: #d1d5db;
+      --saga-titulo: #1a2332;
+      --saga-texto: #1f2937;
+      --saga-cabecalho-tabela: #f4f6f9;
+      --saga-degrade: linear-gradient(90deg, #c2410c, #1a2332);
+    }
+    body {
+      font-family: "Lora", Georgia, serif;
+      background-color: var(--saga-fundo);
+      color: var(--saga-texto);
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, nav, aside, button, input, select, label, th, .font-black, .font-extrabold, .font-bold, .btn, .tabela-cab, .tabular-nums {
+      font-family: "Montserrat", sans-serif;
+      letter-spacing: -0.012em;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border-radius: 9999px;
+      padding: 0.55rem 1.15rem;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .btn-sm { padding: 0.38rem 0.85rem; font-size: 0.75rem; }
+    .btn-principal { background: var(--saga-degrade); color: #fff; box-shadow: 0 6px 16px rgb(194 65 12 / 0.25); }
+    .btn-principal:hover { filter: brightness(1.12); }
+    .btn-escuro { background: var(--saga-azul); color: #fff; }
+    .btn-escuro:hover { filter: brightness(1.25); }
+    .btn-secundario { background: var(--saga-superficie); color: var(--saga-titulo); border: 1.5px solid var(--saga-borda); }
+    .btn-secundario:hover { border-color: var(--saga-laranja); }
+    .btn-icone { width: 2.15rem; height: 2.15rem; padding: 0; background: var(--saga-campo); color: var(--saga-texto); border-radius: 9999px; }
+    .btn-icone:hover { color: var(--saga-laranja-escuro); }
+    .campo {
+      width: 100%;
+      background: var(--saga-campo);
+      color: var(--saga-texto);
+      border: 2px solid transparent;
+      border-radius: 14px;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      outline: none;
+      transition: all 0.15s;
+    }
+    .campo:focus {
+      background: var(--saga-superficie);
+      border-color: var(--saga-laranja);
+      box-shadow: 0 0 0 4px rgb(243 146 0 / 0.15);
+    }
+    .cartao {
+      background: var(--saga-superficie);
+      border-radius: 20px;
+      box-shadow: 0 1px 2px rgb(26 35 50 / 0.06), 0 8px 24px rgb(26 35 50 / 0.05);
+    }
+    .tabela-cab {
+      background: var(--saga-cabecalho-tabela);
+      color: var(--saga-titulo);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .banner-hero {
+      background: linear-gradient(110deg, #1A2332 0%, #1A2332 45%, #7C2D12 78%, #C2410C 100%);
+    }
+    .nav-aba-item {
+      position: relative;
+      isolation: isolate;
+      border-radius: 9999px 0 0 9999px;
+      transition: all 0.25s ease;
+    }
+    .nav-aba-ativa {
+      background: linear-gradient(270deg, var(--saga-fundo) 0%, var(--saga-fundo) 72%, #ffffff 100%);
+      color: var(--saga-titulo) !important;
+      font-weight: 800;
+    }
+    .nav-aba-ativa::before,
+    .nav-aba-ativa::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      width: 18px;
+      height: 18px;
+      background: transparent;
+      pointer-events: none;
+    }
+    .nav-aba-ativa::before {
+      top: -18px;
+      border-bottom-right-radius: 18px;
+      box-shadow: 6px 6px 0 6px var(--saga-fundo);
+    }
+    .nav-aba-ativa::after {
+      bottom: -18px;
+      border-top-right-radius: 18px;
+      box-shadow: 6px -6px 0 6px var(--saga-fundo);
+    }
+    /* Tema Escuro */
+    html[data-tema="escuro"] {
+      --saga-fundo: #0f172a;
+      --saga-superficie: #1e293b;
+      --saga-campo: #0f172a;
+      --saga-borda: #475569;
+      --saga-titulo: #f1f5f9;
+      --saga-texto: #e5e7eb;
+      --saga-cabecalho-tabela: #223047;
+    }
+    html[data-tema="escuro"] body { background-color: #0f172a; color: #e5e7eb; }
+    html[data-tema="escuro"] .bg-white { background-color: #1e293b !important; }
+    html[data-tema="escuro"] .text-\[\#1A2332\] { color: #f1f5f9 !important; }
+    html[data-tema="escuro"] .border-gray-200,
+    html[data-tema="escuro"] .border-gray-100 { border-color: #334155 !important; }
+    html[data-tema="escuro"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155 !important; }
+    html[data-tema="escuro"] .bg-gray-50,
+    html[data-tema="escuro"] .bg-gray-100,
+    html[data-tema="escuro"] .bg-\[\#F8FAFC\],
+    html[data-tema="escuro"] .bg-\[\#F1F3F6\] { background-color: #0f172a !important; }
+    html[data-tema="escuro"] .nav-aba-ativa {
+      background: linear-gradient(270deg, #0f172a 0%, #0f172a 72%, #1e293b 100%);
+      color: #f1f5f9 !important;
+    }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <!-- MENU LATERAL (IDÊNTICO AO SAGA ATUAL) -->
+  <aside id="sidebar" class="w-64 bg-[linear-gradient(270deg,#243247_0%,#1A2332_55%,#131A26_100%)] text-white flex flex-col justify-between shrink-0 transition-all duration-300 relative overflow-hidden z-20">
+    <div class="flex-1 min-h-0 flex flex-col">
+      <!-- LOGO -->
+      <div class="px-4 pt-3.5 pb-3 mx-2 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-10 h-10 rounded-[12px] bg-white text-[#B45309] flex items-center justify-center font-black text-base shrink-0">US</div>
+          <div class="flex flex-col leading-tight min-w-0">
+            <span class="text-[9px] font-extrabold tracking-[0.08em] text-[#F7A428]">CENTRO UNIVERSITÁRIO</span>
+            <span class="text-[16px] font-black tracking-wide">UNISAPIENS</span>
+            <span class="text-[9px] tracking-[0.25em] text-slate-400">SAGA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NAVEGAÇÃO -->
+      <nav class="flex-1 overflow-y-auto py-3 pl-3 pr-0 space-y-3 text-[13px]">
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 px-3 mb-1">Operacional</p>
+          <ul class="space-y-0.5">
+            <li>
+              <button onclick="irPara('dashboard')" id="nav-dashboard" class="nav-aba-item nav-aba-ativa w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs bg-[#FFF4E5] text-[#C2410C] shrink-0"><i class="fa-solid fa-gauge-high"></i></span>
+                <span class="truncate">Dashboard</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('grade')" id="nav-grade" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-calendar-days"></i></span>
+                <span class="truncate">Grade do Semestre</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('semana')" id="nav-semana" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-calendar-week"></i></span>
+                <span class="truncate">Horário da Semana</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('importar')" id="nav-importar" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-file-arrow-up"></i></span>
+                <span class="truncate">Importar Planilha</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('historico')" id="nav-historico" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-bell"></i></span>
+                <span class="truncate">Histórico de Avisos</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 px-3 mb-1">Cadastros</p>
+          <ul class="space-y-0.5">
+            <li>
+              <button onclick="irPara('turmas')" id="nav-turmas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-people-group"></i></span>
+                <span class="truncate">Cursos e Turmas</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('professores')" id="nav-professores" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-chalkboard-user"></i></span>
+                <span class="truncate">Professores</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('salas')" id="nav-salas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-door-open"></i></span>
+                <span class="truncate">Salas e Laboratórios</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="irPara('disciplinas')" id="nav-disciplinas" class="nav-aba-item w-full flex items-center gap-3 py-2 pl-2.5 pr-4 text-left text-slate-200 hover:text-white">
+                <span class="nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0"><i class="fa-solid fa-book"></i></span>
+                <span class="truncate">Ofertas e Disciplinas</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <!-- RODAPÉ SIDEBAR -->
+    <div class="p-3 mx-2 border-t border-white/10 flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-full bg-[#F39200] text-[#1A2332] font-black text-xs flex items-center justify-center shrink-0">VS</div>
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-extrabold truncate">Visitante (GitHub Pages)</div>
+        <div class="text-[10px] text-emerald-300 font-semibold truncate">● Demonstração Isolada</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL -->
+  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    <!-- CABEÇALHO SUPERIOR -->
+    <header class="bg-white border-b border-gray-200 h-16 px-6 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <h2 id="titulo-pagina" class="text-xl font-black text-[#1A2332] tracking-tight">Horário do dia</h2>
+        <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF4E5] text-[#B45309] text-[11px] font-extrabold border border-orange-200/70">
+          <i class="fa-solid fa-flask"></i> Ambiente de Demonstração (Dados Simulados em Memória)
+        </span>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <span class="inline-flex items-center gap-2 text-xs px-3.5 py-1.5 rounded-full font-extrabold bg-[#1A2332] text-white shadow-xs">
+          <span class="w-2 h-2 rounded-full bg-[#F39200]"></span>
+          Semestre 2026.2
+        </span>
+        <button onclick="alternarTema()" id="btn-tema" title="Alternar tema claro/escuro" class="w-9 h-9 rounded-full border border-gray-200 bg-white text-[#1A2332] flex items-center justify-center text-sm hover:border-[#F39200] transition cursor-pointer">
+          <i id="icone-tema" class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTEÚDO ROLÁVEL -->
+    <div class="flex-1 overflow-y-auto p-6 space-y-5">
+
+      <!-- 1. ABA DASHBOARD -->
+      <section id="aba-dashboard" class="aba-secao space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none"></div>
+          <div class="absolute right-16 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] border-[12px] border-orange-100/35 pointer-events-none"></div>
+
+          <div class="relative space-y-2.5 max-w-2xl">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+              <i class="fa-solid fa-bolt text-[#FDBA74]"></i> Painel Operacional Diário
+            </span>
+            <h3 class="text-2xl font-black tracking-tight">Quarta-Feira · Semestre 2026.2</h3>
+            <div class="flex flex-wrap items-center gap-2 pt-0.5">
+              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold tabular-nums">
+                <i class="fa-solid fa-chalkboard-user text-[#FDBA74]"></i> <span id="dash-total-aulas">6</span> aula(s) no dia
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold tabular-nums">
+                <i class="fa-solid fa-computer text-emerald-300"></i> 5 laboratório(s) ocupado(s)
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/25 text-emerald-200 text-xs font-extrabold">
+                <i class="fa-solid fa-circle-check"></i> 0 conflitos hoje
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cartao p-5 space-y-3.5">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div class="md:col-span-6">
+              <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                <i class="fa-solid fa-magnifying-glass text-[#B45309] mr-1"></i> Buscar Turma, Disciplina, Docente ou Sala
+              </label>
+              <input id="dash-busca" oninput="renderDashboard()" type="text" placeholder="Ex: SIST. DE INFORM., LAB04, Anderson..." class="campo" />
+            </div>
+            <div class="md:col-span-6">
+              <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                <i class="fa-solid fa-clock text-[#B45309] mr-1"></i> Filtrar por Turno
+              </label>
+              <div class="grid grid-cols-3 gap-1.5 bg-[#F1F3F6] p-1 rounded-[14px]">
+                <button onclick="setTurnoDash('TODOS')" id="turno-TODOS" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold bg-[#1A2332] text-white">Todos</button>
+                <button onclick="setTurnoDash('VESPERTINO')" id="turno-VESPERTINO" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600">Vespertino</button>
+                <button onclick="setTurnoDash('NOTURNO')" id="turno-NOTURNO" class="py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600">Noturno</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cartao overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm min-w-[760px]">
+            <thead>
+              <tr class="tabela-cab">
+                <th class="p-3.5 pl-5">Turma / Curso</th>
+                <th class="p-3.5">Disciplina / Docente</th>
+                <th class="p-3.5">Horário</th>
+                <th class="p-3.5">Sala / Lab</th>
+                <th class="p-3.5 text-center">Status</th>
+                <th class="p-3.5 pr-5 text-right">Ações Rápidas</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-dashboard" class="divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 2. ABA GRADE DO SEMESTRE -->
+      <section id="aba-grade" class="aba-secao hidden space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="absolute -right-10 -top-28 w-48 h-[21rem] rounded-full rotate-[-35deg] bg-gradient-to-b from-[#F39200] to-[#C2410C] opacity-90 pointer-events-none"></div>
+          <div class="relative space-y-2.5">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide uppercase">
+              <i class="fa-solid fa-table-list text-[#FDBA74]"></i> Matriz de Oferta Acadêmica
+            </span>
+            <h3 class="text-2xl font-black tracking-tight">Semestre 2026.2 · Grade Completa</h3>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3.5 py-1.5 rounded-full bg-white/15 text-xs font-bold"><i class="fa-solid fa-layer-group text-[#FDBA74] mr-1"></i> 127 ofertas no semestre</span>
+              <span class="px-3.5 py-1.5 rounded-full bg-emerald-500/25 text-emerald-200 text-xs font-extrabold"><i class="fa-solid fa-shield-check mr-1"></i> Motor de Integridade Ativo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cartao p-5">
+          <img src="./img/grade.png" alt="Grade do Semestre SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+      <!-- 3. ABA HORÁRIO DA SEMANA -->
+      <section id="aba-semana" class="aba-secao hidden space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6 flex items-center justify-between">
+          <div class="relative space-y-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
+              <i class="fa-solid fa-calendar-week text-[#FDBA74]"></i> Quadro Geral da Semana
+            </span>
+            <h3 class="text-2xl font-black">Semestre 2026.2 · Segunda a Sábado</h3>
+          </div>
+          <button onclick="window.print()" class="btn btn-sm bg-white text-[#1A2332] font-extrabold"><i class="fa-solid fa-print text-[#C2410C]"></i> Imprimir</button>
+        </div>
+        <div class="cartao p-5">
+          <img src="./img/semana.png" alt="Horário da Semana SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+      <!-- 4. ABA IMPORTAR PLANILHA -->
+      <section id="aba-importar" class="aba-secao hidden space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
+          <div class="relative space-y-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
+              <i class="fa-solid fa-file-excel text-[#FDBA74]"></i> Importação de Oferta
+            </span>
+            <h3 class="text-2xl font-black">Semestre 2026.2</h3>
+          </div>
+        </div>
+        <div class="cartao p-5">
+          <img src="./img/importar.png" alt="Importar Planilha SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+      <!-- 5. ABA HISTÓRICO DE AVISOS -->
+      <section id="aba-historico" class="aba-secao hidden space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
+          <div class="relative space-y-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
+              <i class="fa-solid fa-bell text-[#FDBA74]"></i> Central de Comunicações
+            </span>
+            <h3 id="hist-titulo-banner" class="text-2xl font-black">Avisos Acadêmicos Gerados</h3>
+          </div>
+        </div>
+
+        <div class="cartao overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="tabela-cab">
+                <th class="p-3.5 pl-5">Data/Hora</th>
+                <th class="p-3.5">Turma</th>
+                <th class="p-3.5">Mensagem</th>
+                <th class="p-3.5 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-historico" class="divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6. ABA CURSOS E TURMAS -->
+      <section id="aba-turmas" class="aba-secao hidden space-y-5">
+        <div class="cartao p-5">
+          <img src="./img/cursos.png" alt="Cursos e Turmas SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+      <!-- 7. ABA PROFESSORES -->
+      <section id="aba-professores" class="aba-secao hidden space-y-5">
+        <div class="banner-hero relative overflow-hidden rounded-3xl text-white px-7 py-6">
+          <div class="relative space-y-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold uppercase">
+              <i class="fa-solid fa-chalkboard-user text-[#FDBA74]"></i> Cadastros Acadêmicos
+            </span>
+            <h3 class="text-2xl font-black">Corpo Docente</h3>
+          </div>
+        </div>
+        <div id="grid-professores" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- 8. ABA SALAS E LABORATÓRIOS -->
+      <section id="aba-salas" class="aba-secao hidden space-y-5">
+        <div class="cartao p-5">
+          <img src="./img/salas.png" alt="Salas e Laboratórios SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+      <!-- 9. ABA OFERTAS E DISCIPLINAS -->
+      <section id="aba-disciplinas" class="aba-secao hidden space-y-5">
+        <div class="cartao p-5">
+          <img src="./img/grade.png" alt="Ofertas e Disciplinas SAGA" class="w-full rounded-xl border border-gray-200" />
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- MODAL DE EDIÇÃO RÁPIDA (SIMULAÇÃO) -->
+  <div id="modal-editar" class="fixed inset-0 bg-black/50 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="cartao p-6 w-full max-w-md space-y-4 border-t-4 border-[#F39200]">
+      <div>
+        <h3 class="text-lg font-black text-[#1A2332]">Alterar Sala / Docente (Simulação)</h3>
+        <p id="modal-subtitulo" class="text-xs text-gray-500 mt-0.5"></p>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-extrabold uppercase text-gray-500 mb-1">Novo Laboratório / Sala</label>
+          <select id="modal-sala" class="campo"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold uppercase text-gray-500 mb-1">Docente Responsável</label>
+          <select id="modal-prof" class="campo"></select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="fecharModal()" class="btn btn-sm btn-secundario">Cancelar</button>
+        <button onclick="salvarEdicaoDemo()" class="btn btn-sm btn-principal"><i class="fa-solid fa-check"></i> Salvar e Gerar Aviso</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let turnoFiltro = "TODOS";
+    let editandoId = null;
+
+    const dadosDemo = {
+      salas: ["LAB01", "LAB02", "LAB04", "LAB05", "LAB07", "SALA 12", "SALA 26", "EAD"],
+      professores: [
+        { nome: "ALLAN KARDEC GURGEL DO AMARAL", email: "allan.amaral@unisapiens.edu.br", aulas: 6, dias: ["SEG", "QUA", "SEX"] },
+        { nome: "IVES LIMA BATISTA", email: "ives.batista@unisapiens.edu.br", aulas: 5, dias: ["TER", "QUA", "QUI"] },
+        { nome: "ANDERSON SEIXAS", email: "anderson.seixas@unisapiens.edu.br", aulas: 4, dias: ["SEG", "QUA"] },
+        { nome: "KAMILLA RAMIRES MAY", email: "kamilla.may@unisapiens.edu.br", aulas: 5, dias: ["TER", "QUI", "SEX"] },
+        { nome: "BENITO FRANCO", email: "benito.franco@unisapiens.edu.br", aulas: 4, dias: ["SEG", "QUA", "SEX"] },
+        { nome: "CARLOS EDUARDO ROCHA", email: "carlos.rocha@unisapiens.edu.br", aulas: 4, dias: ["TER", "QUA"] }
+      ],
+      aulasHoje: [
+        { id: 1, turma: "ENG. COMPUTAÇÃO 7º A", disciplina: "PROJETO DE EXTENSÃO IV", prof: "ALLAN KARDEC GURGEL DO AMARAL", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB04", travada: true, alterada: false },
+        { id: 2, turma: "SIST. DE INFORM. 4º A", disciplina: "ALGORITMOS E ESTRUTURAS DE DADOS II", prof: "IVES LIMA BATISTA", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB01", travada: false, alterada: false },
+        { id: 3, turma: "ENG. SOFTWARE 2º B", disciplina: "PROGRAMAÇÃO WEB FULL-STACK", prof: "ANDERSON SEIXAS", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB02", travada: false, alterada: false },
+        { id: 4, turma: "BIG DATA E I.A. 3º A", disciplina: "APRENDIZADO DE MÁQUINA", prof: "CARLOS EDUARDO ROCHA", horario: "19:00 - 21:45", turno: "NOTURNO", sala: "LAB05", travada: true, alterada: false },
+        { id: 5, turma: "ENG. CIVIL 4º A", disciplina: "RESISTÊNCIA DOS MATERIAIS", prof: "KAMILLA RAMIRES MAY", horario: "14:00 - 16:45", turno: "VESPERTINO", sala: "SALA 26", travada: false, alterada: false },
+        { id: 6, turma: "JOGOS DIGITAIS 2º A", disciplina: "MODELAGEM E MOTORES GRÁFICOS", prof: "BENITO FRANCO", horario: "14:00 - 16:45", turno: "VESPERTINO", sala: "LAB07", travada: false, alterada: false }
+      ],
+      avisos: [
+        { quando: "Hoje, 18:15", turma: "ENG. COMPUTAÇÃO 7º A", mensagem: "Aula confirmada no LAB04 com Prof. Allan Kardec às 19:00.", status: "Enviado" },
+        { quando: "Hoje, 17:40", turma: "SIST. DE INFORM. 4º A", mensagem: "Alteração de sala: Algoritmos e Estruturas de Dados II acontecerá hoje no LAB01.", status: "Enviado" }
+      ]
+    };
+
+    const titulosAbas = {
+      dashboard: "Horário do dia",
+      grade: "Grade do semestre",
+      semana: "Horário da semana",
+      importar: "Importar planilha",
+      historico: "Histórico de avisos",
+      turmas: "Cursos e turmas",
+      professores: "Professores",
+      salas: "Salas e laboratórios",
+      disciplinas: "Ofertas e disciplinas"
+    };
+
+    function irPara(id) {
+      document.querySelectorAll(".aba-secao").forEach(s => s.classList.add("hidden"));
+      document.getElementById("aba-" + id).classList.remove("hidden");
+      document.getElementById("titulo-pagina").innerText = titulosAbas[id] || "SAGA";
+
+      document.querySelectorAll(".nav-aba-item").forEach(btn => {
+        btn.classList.remove("nav-aba-ativa");
+        const icone = btn.querySelector(".nav-icone");
+        if (icone) icone.className = "nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs text-slate-300 shrink-0";
+      });
+
+      const ativo = document.getElementById("nav-" + id);
+      if (ativo) {
+        ativo.classList.add("nav-aba-ativa");
+        const icone = ativo.querySelector(".nav-icone");
+        if (icone) icone.className = "nav-icone w-7 h-7 rounded-full flex items-center justify-center text-xs bg-[#FFF4E5] text-[#C2410C] shrink-0";
+      }
+    }
+
+    function setTurnoDash(t) {
+      turnoFiltro = t;
+      ["TODOS", "VESPERTINO", "NOTURNO"].forEach(k => {
+        const b = document.getElementById("turno-" + k);
+        b.className = k === t
+          ? "py-1.5 px-2 rounded-[10px] text-xs font-extrabold bg-[#1A2332] text-white"
+          : "py-1.5 px-2 rounded-[10px] text-xs font-extrabold text-gray-600";
+      });
+      renderDashboard();
+    }
+
+    function renderDashboard() {
+      const busca = (document.getElementById("dash-busca").value || "").toLowerCase();
+      const lista = dadosDemo.aulasHoje.filter(a => {
+        if (turnoFiltro !== "TODOS" && a.turno !== turnoFiltro) return false;
+        if (busca && !`${a.turma} ${a.disciplina} ${a.prof} ${a.sala}`.toLowerCase().includes(busca)) return false;
+        return true;
+      });
+      document.getElementById("dash-total-aulas").innerText = lista.length;
+
+      document.getElementById("tbody-dashboard").innerHTML = lista.map(a => `
+        <tr class="hover:bg-gray-50/80 transition">
+          <td class="p-3.5 pl-5">
+            <div class="font-extrabold text-[#1A2332]">${a.turma}</div>
+            <div class="text-[11px] font-bold text-gray-400">${a.turno}</div>
+          </td>
+          <td class="p-3.5">
+            <div class="font-bold text-gray-900">${a.disciplina}</div>
+            <div class="text-xs text-gray-500 mt-0.5"><i class="fa-solid fa-chalkboard-user text-[#B45309] mr-1"></i>${a.prof}</div>
+          </td>
+          <td class="p-3.5 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-bold tabular-nums text-[#1A2332]">
+              <i class="fa-regular fa-clock text-[#B45309]"></i> ${a.horario}
+            </span>
+          </td>
+          <td class="p-3.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF4E5] text-[#B45309] font-extrabold text-xs">
+              <i class="fa-solid fa-computer"></i> ${a.sala}
+            </span>
+          </td>
+          <td class="p-3.5 text-center">
+            ${a.alterada
+              ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-extrabold"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Alterada hoje</span>`
+              : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-extrabold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmada</span>`
+            }
+          </td>
+          <td class="p-3.5 pr-5 text-right">
+            <div class="inline-flex items-center gap-1.5">
+              <button onclick="alternarTrava(${a.id})" title="${a.travada ? 'Sala travada (Lock ativo)' : 'Travar sala'}" class="btn btn-icone ${a.travada ? '!bg-[#FFF4E5] !text-[#C2410C]' : ''}">
+                <i class="fa-solid ${a.travada ? 'fa-lock' : 'fa-lock-open'} text-xs"></i>
+              </button>
+              <button onclick="abrirModalEditar(${a.id})" title="Trocar sala ou docente no dia" class="btn btn-icone">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function alternarTrava(id) {
+      const a = dadosDemo.aulasHoje.find(x => x.id === id);
+      if (a) {
+        a.travada = !a.travada;
+        renderDashboard();
+      }
+    }
+
+    function abrirModalEditar(id) {
+      const a = dadosDemo.aulasHoje.find(x => x.id === id);
+      if (!a) return;
+      editandoId = id;
+      document.getElementById("modal-subtitulo").innerText = `${a.turma} · ${a.disciplina}`;
+
+      const selSala = document.getElementById("modal-sala");
+      selSala.innerHTML = dadosDemo.salas.map(s => {
+        const ocupante = dadosDemo.aulasHoje.find(x => x.id !== a.id && x.sala === s && x.horario === a.horario);
+        return `<option value="${s}" ${s === a.sala ? "selected" : ""}>${s} ${ocupante ? `— Ocupado: ${ocupante.turma}` : "— Livre"}</option>`;
+      }).join("");
+
+      const selProf = document.getElementById("modal-prof");
+      selProf.innerHTML = dadosDemo.professores.map(p => `<option value="${p.nome}" ${p.nome === a.prof ? "selected" : ""}>${p.nome}</option>`).join("");
+
+      const modal = document.getElementById("modal-editar");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function fecharModal() {
+      const modal = document.getElementById("modal-editar");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function salvarEdicaoDemo() {
+      const a = dadosDemo.aulasHoje.find(x => x.id === editandoId);
+      if (!a) return;
+      a.sala = document.getElementById("modal-sala").value;
+      a.prof = document.getElementById("modal-prof").value;
+      a.alterada = true;
+
+      dadosDemo.avisos.unshift({
+        quando: "Agora mesmo",
+        turma: a.turma,
+        mensagem: `Alteração de aula: ${a.disciplina} (${a.turma}) hoje acontecerá na sala/lab ${a.sala} com ${a.prof}.`,
+        status: "Enviado"
+      });
+
+      fecharModal();
+      renderDashboard();
+      renderHistorico();
+    }
+
+    function renderHistorico() {
+      document.getElementById("tbody-historico").innerHTML = dadosDemo.avisos.map(av => `
+        <tr>
+          <td class="p-3.5 pl-5 text-xs text-gray-500 whitespace-nowrap">${av.quando}</td>
+          <td class="p-3.5 font-extrabold text-[#1A2332]">${av.turma}</td>
+          <td class="p-3.5">${av.mensagem}</td>
+          <td class="p-3.5 text-center">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-extrabold">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${av.status}
+            </span>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderProfessores() {
+      document.getElementById("grid-professores").innerHTML = dadosDemo.professores.map(p => {
+        const ini = p.nome.split(" ").slice(0, 2).map(x => x[0]).join("");
+        return `
+          <div class="cartao p-4 space-y-3 relative overflow-hidden">
+            <span class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1A2332] to-[#F39200]"></span>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-[#1A2332] text-[#F39200] font-black text-xs flex items-center justify-center shrink-0">${ini}</div>
+              <div class="min-w-0">
+                <div class="font-extrabold text-sm text-[#1A2332] truncate">${p.nome}</div>
+                <div class="text-xs text-gray-500 truncate">${p.email}</div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1.5 text-[11px]">
+              <span class="px-2.5 py-0.5 rounded-full bg-[#FFF4E5] text-[#B45309] font-extrabold">${p.aulas} aulas</span>
+              ${p.dias.map(d => `<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-bold">${d}</span>`).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function alternarTema() {
+      const html = document.documentElement;
+      const icone = document.getElementById("icone-tema");
+      if (html.getAttribute("data-tema") === "escuro") {
+        html.removeAttribute("data-tema");
+        icone.className = "fa-solid fa-moon";
+      } else {
+        html.setAttribute("data-tema", "escuro");
+        icone.className = "fa-solid fa-sun text-[#F39200]";
+      }
+    }
+
+    renderDashboard();
+    renderHistorico();
+    renderProfessores();
+  </script>
+</body>
+</html>

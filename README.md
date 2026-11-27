@@ -5,7 +5,7 @@
 > **Professor Orientador:** Prof. Allan Kardec Gurgel do Amaral  
 > **Cliente Atendido:** Coordenação Acadêmica do Núcleo de Engenharia e Tecnologia (ENGETEC)
 
-🌐 **Produção (Vercel):** [https://saga-liard.vercel.app](https://saga-liard.vercel.app)
+🌐 **Demonstração Pública (GitHub Pages):** [https://ticiacruzcosta.github.io/saga/](https://ticiacruzcosta.github.io/saga/) *(ambiente estático isolado, sem vínculo com o banco de dados de produção)*
 
 ---
 
