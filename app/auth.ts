@@ -84,7 +84,7 @@ export async function alterarMinhaSenha(input: { atual: string; nova: string }):
 
 export async function sair() {
   await encerrarSessao();
-  redirect("/");
+  redirect("/login");
 }
 
 // ---------------------------------------------------------------- tela "Usuários" (só administradores)

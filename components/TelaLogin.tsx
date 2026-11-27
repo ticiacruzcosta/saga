@@ -4,7 +4,6 @@
 // Modos: entrar, criar nova conta (fica aguardando aprovação) e primeiro acesso (sem nenhum usuário ainda).
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { criarPrimeiroAcesso, entrar, solicitarAcesso } from "@/app/auth";
 
 const DEGRADE = "bg-gradient-to-br from-[#F39200] to-[#1A2332]";
@@ -132,13 +131,6 @@ export default function TelaLogin({ primeiroAcesso }: { primeiroAcesso: boolean 
               {criando ? <><i className="fa-solid fa-arrow-left"></i> Já tenho conta</> : <>Criar nova conta <i className="fa-solid fa-arrow-right"></i></>}
             </button>
           )}
-
-          <Link
-            href="/"
-            className="mt-1 text-xs font-bold text-[#1A2332] hover:text-[#C2410C] self-center flex items-center gap-1.5"
-          >
-            <i className="fa-solid fa-display text-[#B45309]"></i> Voltar para a Vitrine do Projeto
-          </Link>
         </form>
       </div>
     </main>
